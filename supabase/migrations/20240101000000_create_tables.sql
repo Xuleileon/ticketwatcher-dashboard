@@ -24,6 +24,25 @@ create table watch_tasks (
     seat_types text[], -- 座位类型优先级
     passenger_ids text[], -- 乘客证件号
     status varchar not null default 'active',
+    rpa_webhook_url varchar, -- RPA服务的Webhook URL
+    rpa_callback_url varchar, -- RPA回调URL
+    created_at timestamp with time zone default now(),
+    updated_at timestamp with time zone default now()
+);
+
+-- Create rpa_tasks table
+create table rpa_tasks (
+    id uuid default uuid_generate_v4() primary key,
+    watch_task_id uuid references watch_tasks not null,
+    status varchar not null default 'pending',
+    rpa_machine_id varchar,
+    enterprise_id uuid,
+    flow_id varchar,
+    flow_process_no varchar,
+    start_time timestamp with time zone,
+    end_time timestamp with time zone,
+    result jsonb,
+    error_message text,
     created_at timestamp with time zone default now(),
     updated_at timestamp with time zone default now()
 );
@@ -86,5 +105,11 @@ create trigger update_watch_tasks_updated_at
 
 create trigger update_order_records_updated_at
     before update on order_records
+    for each row
+    execute function update_updated_at_column();
+
+-- Create trigger for rpa_tasks
+create trigger update_rpa_tasks_updated_at
+    before update on rpa_tasks
     for each row
     execute function update_updated_at_column(); 

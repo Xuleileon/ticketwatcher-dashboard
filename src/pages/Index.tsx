@@ -96,7 +96,7 @@ const Index = () => {
     await fetchProfile();
   };
 
-  const handleStartTask = () => {
+  const handleStartTask = async () => {
     if (!departure || !arrival) {
       toast({
         title: "请选择站点",
@@ -105,11 +105,57 @@ const Index = () => {
       });
       return;
     }
-    setIsTaskRunning(true);
-    toast({
-      title: "抢票任务已启动",
-      description: "系统将自动监控车票状态",
-    });
+
+    try {
+      // 创建watch_task
+      const { data: task, error: taskError } = await supabase
+        .from('watch_tasks')
+        .insert({
+          from_station: departure,
+          to_station: arrival,
+          travel_date: new Date().toISOString().split('T')[0],
+          preferred_trains: trainNumber ? [trainNumber] : [],
+          seat_types: ['二等座', '一等座'],
+          rpa_webhook_url: import.meta.env.VITE_RPA_WEBHOOK_URL,
+          rpa_callback_url: `${import.meta.env.VITE_API_URL}/functions/v1/rpa-callback`
+        })
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+
+      // 触发RPA
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/functions/v1/trigger-rpa`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            taskId: task.id
+          })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to trigger RPA task');
+      }
+
+      setIsTaskRunning(true);
+      toast({
+        title: "抢票任务已启动",
+        description: "RPA机器人将自动为您抢票",
+      });
+    } catch (error) {
+      console.error('Error starting task:', error);
+      toast({
+        title: "启动任务失败",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleStopTask = () => {
