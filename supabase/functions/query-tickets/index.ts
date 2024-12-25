@@ -6,12 +6,14 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     const { date, fromStation, toStation } = await req.json()
+    console.log('Querying tickets for:', { date, fromStation, toStation })
 
     // Generate mock ticket data for testing
     const tickets = [
@@ -46,7 +48,7 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error querying tickets:', error)
+    console.error('Error processing request:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

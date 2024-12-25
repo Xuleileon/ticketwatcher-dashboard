@@ -35,6 +35,8 @@ export class Railway12306 {
       stations.forEach((station: Station) => {
         this.stationsCache.set(station.name, station);
       });
+      
+      console.log('Stations loaded:', this.stationsCache.size);
     } catch (error) {
       console.error('Failed to load stations:', error);
     }
@@ -59,6 +61,8 @@ export class Railway12306 {
         console.error(`Station codes not found for ${fromStation} or ${toStation}`);
         return [];
       }
+
+      console.log('Querying tickets with:', { date, fromCode, toCode });
 
       const { data, error } = await supabase.functions.invoke('query-tickets', {
         body: {
