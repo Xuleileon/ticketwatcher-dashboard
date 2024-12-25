@@ -7,13 +7,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from "@/hooks/use-toast";
 import type { CommutePreferencesProps } from '@/types/components';
 import { Combobox } from '@/components/ui/combobox';
-
-interface Station {
-  name: string;
-  code: string;
-  pinyin: string;
-  acronym: string;
-}
+import { Railway12306, Station } from '@/lib/railway';
 
 export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   onPreferencesChange
@@ -30,17 +24,14 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   useEffect(() => {
     const fetchStations = async () => {
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stations`
-        );
-        if (!response.ok) throw new Error('Failed to fetch stations');
-        const data = await response.json();
-        setStations(data);
+        const railway = Railway12306.getInstance();
+        const stationList = await railway.getStations();
+        setStations(stationList);
       } catch (error) {
         console.error('Error fetching stations:', error);
         toast({
-          title: "Error",
-          description: "Failed to load station data",
+          title: "获取站点失败",
+          description: "无法加载车站数据，请稍后重试",
           variant: "destructive",
         });
       } finally {
@@ -62,31 +53,31 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   const handleSave = async () => {
     setIsValidating(true);
     try {
-      // Validate stations
+      // 验证站点
       const isFromStationValid = validateStation(fromStation);
       const isToStationValid = validateStation(toStation);
       if (!isFromStationValid || !isToStationValid) {
         toast({
-          title: "Station validation failed",
-          description: "Please enter valid station names",
+          title: "站点验证失败",
+          description: "请输入有效的车站名称",
           variant: "destructive",
         });
         return;
       }
 
-      // Validate train numbers
+      // 验证车次
       const isMorningTrainValid = validateTrainNumber(morningTrainNumber);
       const isEveningTrainValid = validateTrainNumber(eveningTrainNumber);
       if (!isMorningTrainValid || !isEveningTrainValid) {
         toast({
-          title: "Train number validation failed",
-          description: "Please enter valid train numbers",
+          title: "车次验证失败",
+          description: "请输入有效的车次号",
           variant: "destructive",
         });
         return;
       }
 
-      // Save preferences
+      // 保存设置
       onPreferencesChange({
         fromStation,
         toStation,
@@ -96,13 +87,13 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
       });
 
       toast({
-        title: "Success",
-        description: "Commute preferences have been updated",
+        title: "保存成功",
+        description: "乘车偏好设置已更新",
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "An unknown error occurred",
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "未知错误",
         variant: "destructive",
       });
     } finally {
@@ -121,7 +112,11 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
           <div className="space-y-2">
             <Label htmlFor="fromStation">出发站</Label>
             <Combobox
-              items={stations.map(s => ({ label: s.name, value: s.name }))}
+              items={stations.map(s => ({ 
+                label: `${s.name} (${s.pinyin})`, 
+                value: s.name,
+                description: s.code
+              }))}
               value={fromStation}
               onChange={setFromStation}
               placeholder="请输入出发站"
@@ -131,7 +126,11 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
           <div className="space-y-2">
             <Label htmlFor="toStation">到达站</Label>
             <Combobox
-              items={stations.map(s => ({ label: s.name, value: s.name }))}
+              items={stations.map(s => ({ 
+                label: `${s.name} (${s.pinyin})`, 
+                value: s.name,
+                description: s.code
+              }))}
               value={toStation}
               onChange={setToStation}
               placeholder="请输入到达站"

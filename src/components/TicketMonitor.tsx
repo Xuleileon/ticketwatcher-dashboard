@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
+import { Railway12306 } from '@/lib/railway';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -57,6 +58,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
   const [ticketData, setTicketData] = useState<{[key: string]: TicketInfo[]}>({});
   const [workDays, setWorkDays] = useState<Date[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const railway = Railway12306.getInstance();
 
   useEffect(() => {
     const initWorkDays = async () => {
@@ -76,46 +78,19 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
       for (const date of workDays) {
         const dateStr = date.toISOString().split('T')[0];
         try {
-          // 构建查询参数
-          const params = new URLSearchParams({
-            'leftTicketDTO.train_date': dateStr,
-            'leftTicketDTO.from_station': preferences.fromStation,
-            'leftTicketDTO.to_station': preferences.toStation,
-            'purpose_codes': 'ADULT'
-          });
-
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/proxy/otn/leftTicket/queryZ?${params.toString()}`,
-            {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json'
-              }
-            }
+          const tickets = await railway.queryTickets(
+            dateStr,
+            preferences.fromStation,
+            preferences.toStation
           );
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.status && data.data) {
-              // 过滤出早晚班车次的余票信息
-              const relevantTickets = data.data.result
-                .filter((ticket: string) => {
-                  const fields = ticket.split('|');
-                  const trainNumber = fields[3];
-                  return trainNumber === preferences.morningTrainNumber || 
-                         trainNumber === preferences.eveningTrainNumber;
-                })
-                .map((ticket: string) => {
-                  const fields = ticket.split('|');
-                  return {
-                    trainNumber: fields[3],
-                    remainingTickets: parseInt(fields[fields.length - 1]) || 0,
-                    price: parseFloat(fields[fields.length - 2]) || 0
-                  };
-                });
-              newTicketData[dateStr] = relevantTickets;
-            }
-          }
+          // 过滤出早晚班车次
+          const relevantTickets = tickets.filter(ticket => 
+            ticket.trainNumber === preferences.morningTrainNumber || 
+            ticket.trainNumber === preferences.eveningTrainNumber
+          );
+
+          newTicketData[dateStr] = relevantTickets;
         } catch (error) {
           console.error('Error fetching ticket info:', error);
         }
