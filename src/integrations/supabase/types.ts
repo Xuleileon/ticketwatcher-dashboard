@@ -9,7 +9,124 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          id_card_number: string | null
+          train_account: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          id_card_number?: string | null
+          train_account?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          id_card_number?: string | null
+          train_account?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ticket_status: {
+        Row: {
+          created_at: string
+          direction: string
+          first_class_available: boolean | null
+          id: string
+          second_class_available: boolean | null
+          ticket_purchased: boolean | null
+          train_number: string
+          travel_date: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          first_class_available?: boolean | null
+          id?: string
+          second_class_available?: boolean | null
+          ticket_purchased?: boolean | null
+          train_number: string
+          travel_date: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          first_class_available?: boolean | null
+          id?: string
+          second_class_available?: boolean | null
+          ticket_purchased?: boolean | null
+          train_number?: string
+          travel_date?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_status_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      train_preferences: {
+        Row: {
+          arrival_station: string
+          created_at: string
+          departure_station: string
+          departure_time: string
+          direction: string
+          id: string
+          preferred_seat_type: string
+          train_number: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          arrival_station: string
+          created_at?: string
+          departure_station: string
+          departure_time: string
+          direction: string
+          id?: string
+          preferred_seat_type?: string
+          train_number: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          arrival_station?: string
+          created_at?: string
+          departure_station?: string
+          departure_time?: string
+          direction?: string
+          id?: string
+          preferred_seat_type?: string
+          train_number?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "train_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
