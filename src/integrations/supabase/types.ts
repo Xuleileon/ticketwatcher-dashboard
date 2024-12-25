@@ -13,25 +13,60 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          id_card_number: string | null
-          train_account: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id: string
-          id_card_number?: string | null
-          train_account?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          id_card_number?: string | null
-          train_account?: string | null
           updated_at?: string
         }
         Relationships: []
+      }
+      ticket_purchases: {
+        Row: {
+          created_at: string | null
+          id: string
+          purchase_status: string
+          rpa_result: Json | null
+          train_number: string
+          travel_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          purchase_status?: string
+          rpa_result?: Json | null
+          train_number: string
+          travel_date: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          purchase_status?: string
+          rpa_result?: Json | null
+          train_number?: string
+          travel_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_purchases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ticket_status: {
         Row: {
@@ -87,7 +122,9 @@ export type Database = {
           departure_station: string
           departure_time: string
           direction: string
+          evening_train_number: string | null
           id: string
+          morning_train_number: string | null
           preferred_seat_type: string
           train_number: string
           updated_at: string
@@ -99,7 +136,9 @@ export type Database = {
           departure_station: string
           departure_time: string
           direction: string
+          evening_train_number?: string | null
           id?: string
+          morning_train_number?: string | null
           preferred_seat_type?: string
           train_number: string
           updated_at?: string
@@ -111,7 +150,9 @@ export type Database = {
           departure_station?: string
           departure_time?: string
           direction?: string
+          evening_train_number?: string | null
           id?: string
+          morning_train_number?: string | null
           preferred_seat_type?: string
           train_number?: string
           updated_at?: string

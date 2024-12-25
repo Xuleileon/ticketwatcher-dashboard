@@ -1,7 +1,5 @@
 export interface Profile {
   id: string;
-  id_card_number: string | null;
-  train_account: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -15,6 +13,8 @@ export interface TrainPreference {
   departure_time: string;
   preferred_seat_type: string;
   direction: string;
+  morning_train_number: string | null;
+  evening_train_number: string | null;
   created_at: string;
   updated_at: string;
 }
