@@ -1,193 +1,101 @@
-import React from 'react';
-import { useSession } from '../App';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from "@/hooks/use-toast";
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import cities from '../../autoGrabTicketsScript-master/cities.json';
+import type { CommutePreferencesProps } from '@/types/components';
 
-interface TrainPreference {
-  departure_station: string;
-  arrival_station: string;
-  train_number: string;
-  departure_time: string;
-  preferred_seat_type: string;
-  direction: string;
-}
+export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
+  onStartTask,
+  onStopTask,
+  isTaskRunning
+}) => {
+  const [fromStation, setFromStation] = useState('');
+  const [toStation, setToStation] = useState('');
+  const [trainNumber, setTrainNumber] = useState('');
+  const [seatType, setSeatType] = useState('二等座');
 
-export const CommutePreferences = () => {
-  const session = useSession();
-  const [morningPreference, setMorningPreference] = React.useState<TrainPreference>({
-    departure_station: '',
-    arrival_station: '',
-    train_number: '',
-    departure_time: '',
-    preferred_seat_type: 'second_class',
-    direction: 'morning'
-  });
-  const [eveningPreference, setEveningPreference] = React.useState<TrainPreference>({
-    departure_station: '',
-    arrival_station: '',
-    train_number: '',
-    departure_time: '',
-    preferred_seat_type: 'second_class',
-    direction: 'evening'
-  });
-
-  React.useEffect(() => {
-    if (session?.user?.id) {
-      fetchPreferences();
-    }
-  }, [session?.user?.id]);
-
-  const fetchPreferences = async () => {
-    const { data, error } = await supabase
-      .from('train_preferences')
-      .select('*')
-      .eq('user_id', session?.user?.id);
-
-    if (error) {
-      toast({
-        title: "获取通勤偏好失败",
-        description: error.message,
-        variant: "destructive",
-      });
+  const handleStart = () => {
+    if (!fromStation || !toStation) {
       return;
     }
 
-    if (data) {
-      const morning = data.find(p => p.direction === 'morning');
-      const evening = data.find(p => p.direction === 'evening');
-      if (morning) setMorningPreference(morning);
-      if (evening) setEveningPreference(evening);
-    }
-  };
-
-  const savePreference = async (preference: TrainPreference) => {
-    const { error } = await supabase
-      .from('train_preferences')
-      .upsert({
-        user_id: session?.user?.id,
-        ...preference
-      }, {
-        onConflict: 'user_id,direction'
-      });
-
-    if (error) {
-      toast({
-        title: "保存偏好失败",
-        description: error.message,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "保存成功",
-      description: "通勤偏好已更新",
+    onStartTask({
+      fromStation,
+      toStation,
+      trainNumber: trainNumber || undefined,
+      seatTypes: [seatType]
     });
   };
 
-  const PreferenceForm = ({ preference, setPreference, title }: {
-    preference: TrainPreference;
-    setPreference: (p: TrainPreference) => void;
-    title: string;
-  }) => (
+  return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>设置固定通勤车次信息</CardDescription>
+        <CardTitle>乘车偏好</CardTitle>
+        <CardDescription>设置您的乘车偏好信息</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>出发站</Label>
-            <Select
-              value={preference.departure_station}
-              onValueChange={(value) => setPreference({ ...preference, departure_station: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择出发站" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(cities).map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>到达站</Label>
-            <Select
-              value={preference.arrival_station}
-              onValueChange={(value) => setPreference({ ...preference, arrival_station: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择到达站" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(cities).map((city) => (
-                  <SelectItem key={city} value={city}>
-                    {city}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>车次</Label>
+            <Label htmlFor="fromStation">出发站</Label>
             <Input
-              value={preference.train_number}
-              onChange={(e) => setPreference({ ...preference, train_number: e.target.value })}
-              placeholder="如 G1377"
+              id="fromStation"
+              value={fromStation}
+              onChange={(e) => setFromStation(e.target.value)}
+              placeholder="请输入出发站"
             />
           </div>
           <div className="space-y-2">
-            <Label>发车时间</Label>
+            <Label htmlFor="toStation">到达站</Label>
             <Input
-              type="time"
-              value={preference.departure_time}
-              onChange={(e) => setPreference({ ...preference, departure_time: e.target.value })}
+              id="toStation"
+              value={toStation}
+              onChange={(e) => setToStation(e.target.value)}
+              placeholder="请输入到达站"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="trainNumber">车次号（选填）</Label>
+            <Input
+              id="trainNumber"
+              value={trainNumber}
+              onChange={(e) => setTrainNumber(e.target.value)}
+              placeholder="请输入优先车次"
             />
           </div>
           <div className="space-y-2">
-            <Label>优先席别</Label>
-            <Select
-              value={preference.preferred_seat_type}
-              onValueChange={(value) => setPreference({ ...preference, preferred_seat_type: value })}
-            >
+            <Label htmlFor="seatType">座位类型</Label>
+            <Select value={seatType} onValueChange={setSeatType}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="second_class">二等座</SelectItem>
-                <SelectItem value="first_class">一等座</SelectItem>
+                <SelectItem value="二等座">二等座</SelectItem>
+                <SelectItem value="一等座">一等座</SelectItem>
+                <SelectItem value="商务座">商务座</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
-        <Button onClick={() => savePreference(preference)}>保存设置</Button>
+        <div className="flex justify-end space-x-2">
+          <Button
+            variant="outline"
+            onClick={onStopTask}
+            disabled={!isTaskRunning}
+          >
+            停止任务
+          </Button>
+          <Button
+            onClick={handleStart}
+            disabled={isTaskRunning || !fromStation || !toStation}
+          >
+            开始抢票
+          </Button>
+        </div>
       </CardContent>
     </Card>
-  );
-
-  return (
-    <div className="space-y-6">
-      <PreferenceForm
-        preference={morningPreference}
-        setPreference={setMorningPreference}
-        title="早班车设置"
-      />
-      <PreferenceForm
-        preference={eveningPreference}
-        setPreference={setEveningPreference}
-        title="晚班车设置"
-      />
-    </div>
   );
 };

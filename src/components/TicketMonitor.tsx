@@ -1,240 +1,124 @@
-import React from 'react';
-import { useSession } from '../App';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from "@/hooks/use-toast";
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
-import { zhCN } from 'date-fns/locale';
-import { VerificationDialog } from './VerificationDialog';
+import { supabase } from '@/integrations/supabase/client';
+import type { TicketMonitorProps } from '@/types/components';
 
-interface TicketStatus {
-  travel_date: string;
-  direction: string;
-  train_number: string;
-  first_class_available: boolean;
-  second_class_available: boolean;
-  ticket_purchased: boolean;
+interface TaskStatus {
+  status: string;
+  error_message?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
 }
 
-export const TicketMonitor = () => {
-  const session = useSession();
-  const [ticketStatus, setTicketStatus] = React.useState<TicketStatus[]>([]);
-  const [isMonitoring, setIsMonitoring] = React.useState(false);
-  const [showVerification, setShowVerification] = React.useState(false);
-  const [currentPurchase, setCurrentPurchase] = React.useState<{
-    dates: string[];
-    trainNo: string;
-  } | null>(null);
-  const monitoringInterval = React.useRef<number>();
+export const TicketMonitor: React.FC<TicketMonitorProps> = ({ taskId }) => {
+  const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null);
 
-  React.useEffect(() => {
-    if (session?.user?.id) {
-      fetchTicketStatus();
+  useEffect(() => {
+    if (taskId) {
+      // 初始加载
+      fetchTaskStatus();
+      // 订阅状态更新
+      const subscription = supabase
+        .channel('rpa_tasks_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'rpa_tasks',
+            filter: `watch_task_id=eq.${taskId}`
+          },
+          (payload) => {
+            setTaskStatus(payload.new as TaskStatus);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
-    return () => {
-      if (monitoringInterval.current) {
-        clearInterval(monitoringInterval.current);
-      }
-    };
-  }, [session?.user?.id]);
+  }, [taskId]);
 
-  const fetchTicketStatus = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('ticket_status')
-        .select('*')
-        .eq('user_id', session?.user?.id)
-        .order('travel_date', { ascending: true });
+  const fetchTaskStatus = async () => {
+    if (!taskId) return;
 
-      if (error) throw error;
-      setTicketStatus(data || []);
-    } catch (error) {
-      console.error('Error fetching ticket status:', error);
-      toast({
-        title: "获取车票状态失败",
-        description: error instanceof Error ? error.message : "请重试",
-        variant: "destructive",
-      });
-    }
-  };
+    const { data, error } = await supabase
+      .from('rpa_tasks')
+      .select('status, error_message, start_time, end_time')
+      .eq('watch_task_id', taskId)
+      .single();
 
-  const startMonitoring = () => {
-    if (!isMonitoring) {
-      setIsMonitoring(true);
-      monitoringInterval.current = window.setInterval(fetchTicketStatus, 30000); // Check every 30 seconds
-      toast({
-        title: "开始监控",
-        description: "系统将每30秒自动检查一次车票状态",
-      });
+    if (!error && data) {
+      setTaskStatus(data);
     }
   };
 
-  const stopMonitoring = () => {
-    if (isMonitoring) {
-      setIsMonitoring(false);
-      if (monitoringInterval.current) {
-        clearInterval(monitoringInterval.current);
-        monitoringInterval.current = undefined;
-      }
-      toast({
-        title: "停止监控",
-        description: "已停止自动检查车票状态",
-      });
+  const getStatusDisplay = () => {
+    if (!taskStatus) return '等待中';
+    switch (taskStatus.status) {
+      case 'pending':
+        return '准备中';
+      case 'running':
+        return '执行中';
+      case 'completed':
+        return '已完成';
+      case 'failed':
+        return '失败';
+      default:
+        return '未知状态';
     }
   };
 
-  const handleVerification = async (code: string) => {
-    if (!currentPurchase) return;
-
-    try {
-      const { error } = await supabase.functions.invoke('auto-order', {
-        body: {
-          verificationCode: code,
-          dates: currentPurchase.dates,
-          trainNo: currentPurchase.trainNo,
-        },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "购票成功",
-        description: "订单已提交，请在12306官网查看详情",
-      });
-
-      await fetchTicketStatus();
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      toast({
-        title: "购票失败",
-        description: error instanceof Error ? error.message : "请重试",
-        variant: "destructive",
-      });
-    } finally {
-      setCurrentPurchase(null);
-      setShowVerification(false);
-    }
-  };
-
-  const purchaseTickets = async (dates: string[], trainNo: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('train_account, id_card_number')
-        .eq('id', session?.user?.id)
-        .single();
-
-      if (!profile?.train_account || !profile?.id_card_number) {
-        toast({
-          title: "请先完善个人信息",
-          description: "需要设置12306账号和身份证号",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setCurrentPurchase({ dates, trainNo });
-      setShowVerification(true);
-    } catch (error) {
-      console.error('Error starting purchase:', error);
-      toast({
-        title: "启动购票失败",
-        description: "请检查网络连接并重试",
-        variant: "destructive",
-      });
+  const getStatusVariant = () => {
+    if (!taskStatus) return 'secondary';
+    switch (taskStatus.status) {
+      case 'pending':
+        return 'secondary';
+      case 'running':
+        return 'default';
+      case 'completed':
+        return 'default';
+      case 'failed':
+        return 'destructive';
+      default:
+        return 'secondary';
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>车票监控</CardTitle>
-            <CardDescription>实时监控未来15天的车票状态</CardDescription>
-          </div>
-          <div className="space-x-2">
-            <Button
-              variant="outline"
-              onClick={stopMonitoring}
-              disabled={!isMonitoring}
-            >
-              停止监控
-            </Button>
-            <Button
-              onClick={startMonitoring}
-              disabled={isMonitoring}
-              className="bg-railway-500 hover:bg-railway-600"
-            >
-              开始监控
-            </Button>
-          </div>
-        </div>
+        <CardTitle>任务状态</CardTitle>
+        <CardDescription>实时监控抢票任务状态</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>日期</TableHead>
-              <TableHead>车次</TableHead>
-              <TableHead>方向</TableHead>
-              <TableHead>一等座</TableHead>
-              <TableHead>二等座</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ticketStatus.map((status) => (
-              <TableRow key={`${status.travel_date}-${status.direction}`}>
-                <TableCell>
-                  {format(new Date(status.travel_date), 'MM月dd日 EEEE', { locale: zhCN })}
-                </TableCell>
-                <TableCell>{status.train_number}</TableCell>
-                <TableCell>
-                  {status.direction === 'morning' ? '早班' : '晚班'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={status.first_class_available ? "default" : "secondary"}>
-                    {status.first_class_available ? '有票' : '无票'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={status.second_class_available ? "default" : "secondary"}>
-                    {status.second_class_available ? '有票' : '无票'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={status.ticket_purchased ? "default" : "outline"}>
-                    {status.ticket_purchased ? '已购' : '未购'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    disabled={!status.first_class_available && !status.second_class_available || status.ticket_purchased}
-                    onClick={() => purchaseTickets([status.travel_date], status.train_number)}
-                  >
-                    购票
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Badge variant={getStatusVariant()}>
+                {getStatusDisplay()}
+              </Badge>
+            </div>
+            {taskStatus?.start_time && (
+              <div className="text-sm text-gray-500">
+                开始时间: {new Date(taskStatus.start_time).toLocaleString()}
+              </div>
+            )}
+          </div>
+          {taskStatus?.error_message && (
+            <div className="text-sm text-red-500">
+              错误信息: {taskStatus.error_message}
+            </div>
+          )}
+          {taskStatus?.end_time && (
+            <div className="text-sm text-gray-500">
+              结束时间: {new Date(taskStatus.end_time).toLocaleString()}
+            </div>
+          )}
+        </div>
       </CardContent>
-
-      <VerificationDialog
-        open={showVerification}
-        onClose={() => {
-          setShowVerification(false);
-          setCurrentPurchase(null);
-        }}
-        onVerify={handleVerification}
-      />
     </Card>
   );
 };

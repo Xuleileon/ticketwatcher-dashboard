@@ -1,32 +1,29 @@
-import React from 'react';
-import { useSession } from '../App';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from "@/hooks/use-toast";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from "@/hooks/use-toast";
+import type { UserProfileProps } from '@/types/components';
 
-interface Profile {
-  id_card_number: string | null;
-  train_account: string | null;
-}
+export const UserProfile: React.FC<UserProfileProps> = ({ userId }) => {
+  const [profile, setProfile] = useState<{
+    id_card_number: string | null;
+    train_account: string | null;
+  } | null>(null);
 
-export const UserProfile = () => {
-  const session = useSession();
-  const [profile, setProfile] = React.useState<Profile | null>(null);
-
-  React.useEffect(() => {
-    if (session?.user?.id) {
+  useEffect(() => {
+    if (userId) {
       fetchProfile();
     }
-  }, [session?.user?.id]);
+  }, [userId]);
 
   const fetchProfile = async () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id_card_number, train_account')
-      .eq('id', session?.user?.id)
+      .eq('id', userId)
       .single();
 
     if (error) {
@@ -42,15 +39,15 @@ export const UserProfile = () => {
   };
 
   const updateProfile = async () => {
-    if (!profile) return;
-    
+    if (!userId || !profile) return;
+
     const { error } = await supabase
       .from('profiles')
       .update({
         id_card_number: profile.id_card_number,
         train_account: profile.train_account,
       })
-      .eq('id', session?.user?.id);
+      .eq('id', userId);
 
     if (error) {
       toast({
@@ -100,7 +97,9 @@ export const UserProfile = () => {
             />
           </div>
         </div>
-        <Button onClick={updateProfile}>保存信息</Button>
+        <Button onClick={updateProfile}>
+          保存信息
+        </Button>
       </CardContent>
     </Card>
   );
