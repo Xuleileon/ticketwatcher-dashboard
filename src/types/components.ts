@@ -7,14 +7,18 @@ export interface CommutePreference {
 }
 
 export interface TicketInfo {
-  date: string;
   trainNumber: string;
+  fromStation: string;
+  toStation: string;
+  departureTime: string;
+  arrivalTime: string;
   remainingTickets: number;
   price: number;
 }
 
 export interface CommutePreferencesProps {
   onPreferencesChange: (preferences: CommutePreference) => void;
+  initialPreferences?: CommutePreference;
 }
 
 export interface UserProfileProps {

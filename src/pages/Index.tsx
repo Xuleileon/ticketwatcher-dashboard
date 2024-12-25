@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from '../App';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,16 +7,79 @@ import { CommutePreferences } from '@/components/CommutePreferences';
 import { TicketMonitor } from '@/components/TicketMonitor';
 import { toast } from "@/hooks/use-toast";
 import type { CommutePreference } from '@/types/components';
+import { database } from '@/lib/database';
 
 const Index = () => {
   const session = useSession();
   const [preferences, setPreferences] = useState<CommutePreference | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handlePreferencesChange = (newPreferences: CommutePreference) => {
-    setPreferences(newPreferences);
+  // 加载保存的偏好设置
+  useEffect(() => {
+    const loadPreferences = async () => {
+      if (!session?.user?.id) return;
+      
+      try {
+        const savedPreferences = await database.getPreferences(session.user.id);
+        if (savedPreferences) {
+          setPreferences(savedPreferences);
+        }
+      } catch (error) {
+        console.error('Error loading preferences:', error);
+        toast({
+          title: "加载失败",
+          description: "无法加载乘车偏好设置",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPreferences();
+  }, [session?.user?.id]);
+
+  const handlePreferencesChange = async (newPreferences: CommutePreference) => {
+    if (!session?.user?.id) {
+      toast({
+        title: "保存失败",
+        description: "请先登录",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const success = await database.savePreferences(session.user.id, newPreferences);
+      if (success) {
+        setPreferences(newPreferences);
+        toast({
+          title: "保存成功",
+          description: "乘车偏好设置已更新",
+        });
+      } else {
+        throw new Error('保存失败');
+      }
+    } catch (error) {
+      console.error('Error saving preferences:', error);
+      toast({
+        title: "保存失败",
+        description: "无法保存乘车偏好设置",
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePurchase = async (date: string, trainNumber: string) => {
+    if (!session?.user?.id) {
+      toast({
+        title: "购票失败",
+        description: "请先登录",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       // 调用RPA webhook进行购票
       const response = await fetch(
@@ -25,7 +88,7 @@ const Index = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`
+            'Authorization': `Bearer ${session.access_token}`
           },
           body: JSON.stringify({
             fromStation: preferences?.fromStation,
@@ -56,8 +119,22 @@ const Index = () => {
   };
 
   const handleLogout = async () => {
+    if (session?.user?.id) {
+      // 清除用户偏好设置
+      await database.clearPreferences(session.user.id);
+    }
     await supabase.auth.signOut();
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-railway-900">加载中...</h1>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -72,6 +149,7 @@ const Index = () => {
         <UserProfile userId={session?.user?.id} />
         <CommutePreferences 
           onPreferencesChange={handlePreferencesChange}
+          initialPreferences={preferences}
         />
         <TicketMonitor 
           preferences={preferences}
