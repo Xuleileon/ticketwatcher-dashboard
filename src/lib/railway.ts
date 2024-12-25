@@ -18,12 +18,18 @@ export class Railway12306 {
 
   private async loadStations() {
     try {
+      // 首先尝试导入车站数据
+      await supabase.functions.invoke('import-cities');
+      console.log('Triggered station import');
+
+      // 然后加载车站数据到缓存
       const { data: stations, error } = await supabase
         .from('stations')
         .select('name, code');
 
       if (error) throw error;
 
+      this.stationsCache.clear();
       stations.forEach((station: { name: string; code: string }) => {
         this.stationsCache.set(station.name, { code: station.code });
       });
@@ -38,7 +44,7 @@ export class Railway12306 {
     const station = this.stationsCache.get(stationName);
     if (station) return station.code;
 
-    // Try reloading stations if not found
+    // 如果缓存中没有，重新加载车站数据
     await this.loadStations();
     const reloadedStation = this.stationsCache.get(stationName);
     return reloadedStation?.code || null;
@@ -69,14 +75,14 @@ export class Railway12306 {
         return [];
       }
 
-      // Check if user has purchased tickets for this date
+      // 检查用户是否已购买该日期的车票
       const { data: purchases } = await supabase
         .from('ticket_purchases')
         .select('train_number, purchase_status')
         .eq('travel_date', date)
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
 
-      // Merge purchase status with ticket info
+      // 合并购票状态与车票信息
       return (data || []).map((ticket: TicketInfo) => ({
         ...ticket,
         purchased: purchases?.some(p => 
@@ -127,7 +133,6 @@ export class Railway12306 {
     let currentDate = new Date(startDate);
     
     while (days.length < 15) {
-      // Skip weekends (0 = Sunday, 6 = Saturday)
       if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
         days.push(new Date(currentDate));
       }

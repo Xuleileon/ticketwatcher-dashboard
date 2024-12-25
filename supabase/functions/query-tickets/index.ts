@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/cors.ts';
+import { createClient } from '@supabase/supabase-js';
 
 interface TicketInfo {
   trainNumber: string;
@@ -20,30 +21,52 @@ serve(async (req) => {
     const { date, fromStation, toStation } = await req.json();
     console.log('Received query request:', { date, fromStation, toStation });
 
+    // 创建 Supabase 客户端
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    );
+
+    // 获取车站代码
+    const { data: fromStationData, error: fromError } = await supabaseClient
+      .from('stations')
+      .select('code')
+      .eq('name', fromStation)
+      .single();
+
+    const { data: toStationData, error: toError } = await supabaseClient
+      .from('stations')
+      .select('code')
+      .eq('name', toStation)
+      .single();
+
+    if (fromError || toError || !fromStationData || !toStationData) {
+      console.error('Station lookup error:', { fromError, toError });
+      throw new Error(`Station codes not found for ${fromStation} or ${toStation}`);
+    }
+
+    const fromCode = fromStationData.code;
+    const toCode = toStationData.code;
+
+    console.log('Found station codes:', { fromCode, toCode });
+
     // 构建 12306 API 请求
-    const url = `https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date=${date}&leftTicketDTO.from_station=${fromStation}&leftTicketDTO.to_station=${toStation}&purpose_codes=ADULT`;
+    const url = `https://kyfw.12306.cn/otn/leftTicket/query?leftTicketDTO.train_date=${date}&leftTicketDTO.from_station=${fromCode}&leftTicketDTO.to_station=${toCode}&purpose_codes=ADULT`;
 
     console.log('Querying 12306 API:', { url });
 
     const headers = {
       'Accept': '*/*',
-      'Accept-Encoding': 'gzip, deflate, br',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Cookie': '_uab_collina=171959196059070525462211; JSESSIONID=934CC95F7C881851D560D6EF8B7B67B5; tk=OYBnZPnapPHALsWNqLyIlFgK3ADcfICc3mdXI8QJZ-slmB1B0; _jc_save_wfdc_flag=dc; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; route=6f50b51faa11b987e576cdb301e545c4; BIGipServerotn=1943601418.64545.0000; BIGipServerpassport=954728714.50215.0000',
-      'Host': 'kyfw.12306.cn',
-      'If-Modified-Since': '0',
+      'Content-Type': 'application/json',
       'Pragma': 'no-cache',
       'Referer': 'https://kyfw.12306.cn/otn/leftTicket/init',
-      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120"',
+      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120"',
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-origin',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
-      'X-Requested-With': 'XMLHttpRequest'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     };
 
     const response = await fetch(url, { headers });
