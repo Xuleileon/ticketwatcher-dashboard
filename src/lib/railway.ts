@@ -54,21 +54,13 @@ export class Railway12306 {
 
   async queryTicketsByDate(date: string, fromStation: string, toStation: string): Promise<TicketInfo[]> {
     try {
-      const fromCode = await this.getStationCode(fromStation);
-      const toCode = await this.getStationCode(toStation);
-
-      if (!fromCode || !toCode) {
-        console.error(`Station codes not found for ${fromStation} or ${toStation}`);
-        return [];
-      }
-
-      console.log('Querying tickets with:', { date, fromCode, toCode });
-
+      console.log('Querying tickets for:', { date, fromStation, toStation });
+      
       const { data, error } = await supabase.functions.invoke('query-tickets', {
         body: {
           date,
-          fromStation: fromCode,
-          toStation: toCode
+          fromStation,
+          toStation
         }
       });
 
@@ -79,7 +71,7 @@ export class Railway12306 {
 
       return data || [];
     } catch (error) {
-      console.error('Error querying tickets:', error);
+      console.error('Error in queryTicketsByDate:', error);
       return [];
     }
   }
