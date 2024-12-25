@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format, addDays } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
+import { VerificationDialog } from './VerificationDialog';
 
 interface TicketStatus {
   travel_date: string;
@@ -22,6 +23,11 @@ export const TicketMonitor = () => {
   const session = useSession();
   const [ticketStatus, setTicketStatus] = React.useState<TicketStatus[]>([]);
   const [isMonitoring, setIsMonitoring] = React.useState(false);
+  const [showVerification, setShowVerification] = React.useState(false);
+  const [currentPurchase, setCurrentPurchase] = React.useState<{
+    dates: string[];
+    trainNo: string;
+  } | null>(null);
 
   React.useEffect(() => {
     if (session?.user?.id) {
@@ -48,73 +54,65 @@ export const TicketMonitor = () => {
     setTicketStatus(data || []);
   };
 
-  const startMonitoring = async () => {
-    setIsMonitoring(true);
-    // Generate next 15 days of monitoring entries
-    const dates = Array.from({ length: 15 }, (_, i) => 
-      format(addDays(new Date(), i), 'yyyy-MM-dd')
-    );
+  const handleVerification = async (code: string) => {
+    if (!currentPurchase) return;
 
-    // Fetch user preferences
-    const { data: preferences } = await supabase
-      .from('train_preferences')
-      .select('*')
-      .eq('user_id', session?.user?.id);
+    try {
+      const { error } = await supabase.functions.invoke('auto-order', {
+        body: {
+          verificationCode: code,
+          dates: currentPurchase.dates,
+          trainNo: currentPurchase.trainNo,
+        },
+      });
 
-    if (!preferences || preferences.length === 0) {
+      if (error) throw error;
+
       toast({
-        title: "未找到通勤偏好设置",
-        description: "请先设置通勤偏好",
+        title: "购票成功",
+        description: "订单已提交，请在12306官网查看详情",
+      });
+
+      await fetchTicketStatus();
+    } catch (error) {
+      console.error('Purchase failed:', error);
+      toast({
+        title: "购票失败",
+        description: error instanceof Error ? error.message : "请重试",
         variant: "destructive",
       });
-      setIsMonitoring(false);
-      return;
+    } finally {
+      setCurrentPurchase(null);
     }
+  };
 
-    // Create monitoring entries for each date and direction
-    for (const date of dates) {
-      for (const pref of preferences) {
-        const { error } = await supabase
-          .from('ticket_status')
-          .upsert({
-            user_id: session?.user?.id,
-            travel_date: date,
-            direction: pref.direction,
-            train_number: pref.train_number,
-            first_class_available: false,
-            second_class_available: false,
-            ticket_purchased: false
-          }, {
-            onConflict: 'user_id,travel_date,direction'
-          });
+  const purchaseTickets = async (dates: string[], trainNo: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('train_account, id_card_number')
+        .eq('id', session?.user?.id)
+        .single();
 
-        if (error) {
-          console.error('Error creating monitoring entry:', error);
-        }
+      if (!profile?.train_account || !profile?.id_card_number) {
+        toast({
+          title: "请先完善个人信息",
+          description: "需要设置12306账号和身份证号",
+          variant: "destructive",
+        });
+        return;
       }
+
+      setCurrentPurchase({ dates, trainNo });
+      setShowVerification(true);
+    } catch (error) {
+      console.error('Error starting purchase:', error);
+      toast({
+        title: "启动购票失败",
+        description: "请检查网络连接并重试",
+        variant: "destructive",
+      });
     }
-
-    await fetchTicketStatus();
-    toast({
-      title: "监控已启动",
-      description: "系统将自动检查车票状态",
-    });
-  };
-
-  const stopMonitoring = () => {
-    setIsMonitoring(false);
-    toast({
-      title: "监控已停止",
-      description: "您可以随时重新启动监控",
-    });
-  };
-
-  const purchaseTickets = async (selectedDates: string[]) => {
-    toast({
-      title: "开始购票",
-      description: "系统正在为您抢票",
-    });
-    // 实际购票逻辑将在后续实现
   };
 
   return (
@@ -185,7 +183,7 @@ export const TicketMonitor = () => {
                   <Button
                     size="sm"
                     disabled={!status.first_class_available && !status.second_class_available || status.ticket_purchased}
-                    onClick={() => purchaseTickets([status.travel_date])}
+                    onClick={() => purchaseTickets([status.travel_date], status.train_number)}
                   >
                     购票
                   </Button>
@@ -195,6 +193,15 @@ export const TicketMonitor = () => {
           </TableBody>
         </Table>
       </CardContent>
+
+      <VerificationDialog
+        open={showVerification}
+        onClose={() => {
+          setShowVerification(false);
+          setCurrentPurchase(null);
+        }}
+        onVerify={handleVerification}
+      />
     </Card>
   );
 };
