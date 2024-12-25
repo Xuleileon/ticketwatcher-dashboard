@@ -85,10 +85,12 @@ export class Railway12306 {
       });
 
       const response = await fetch(
-        `${this.baseUrl}/otn/leftTicket/queryZ?${params.toString()}`,
+        `${this.baseUrl}/otn/leftTicket/queryO?${params.toString()}`,
         {
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Cookie': `_uab_collina=171959196059070525462211; JSESSIONID=934CC95F7C881851D560D6EF8B7B67B5; tk=OYBnZPnapPHALsWNqLyIlFgK3ADcfICc3mdXI8QJZ-slmB1B0; _jc_save_wfdc_flag=dc; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; route=6f50b51faa11b987e576cdb301e545c4; BIGipServerotn=1943601418.64545.0000; BIGipServerpassport=954728714.50215.0000`,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
           }
         }
       );
@@ -106,14 +108,27 @@ export class Railway12306 {
           toStation: fields[7],
           departureTime: fields[8],
           arrivalTime: fields[9],
-          remainingTickets: parseInt(fields[fields.length - 1]) || 0,
-          price: parseFloat(fields[fields.length - 2]) || 0
+          remainingTickets: this.parseTicketCount(fields[30]), // 二等座
+          price: this.parsePrice(fields[30]) // 二等座价格
         };
       });
     } catch (error) {
       console.error('查询车票出错:', error);
       return [];
     }
+  }
+
+  private parseTicketCount(ticketInfo: string): number {
+    if (ticketInfo === '无' || ticketInfo === '*') return 0;
+    if (ticketInfo === '有') return 999;
+    const count = parseInt(ticketInfo);
+    return isNaN(count) ? 0 : count;
+  }
+
+  private parsePrice(priceInfo: string): number {
+    const match = priceInfo.match(/¥(\d+(\.\d{1,2})?)/);
+    if (!match) return 0;
+    return parseFloat(match[1]);
   }
 
   // 查询未来15个工作日的早晚班车票

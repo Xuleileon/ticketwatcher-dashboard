@@ -1,7 +1,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { formatDate, getWeekDay } from './DateUtils';
+import { isHoliday } from '@/lib/holidays';
 import type { TicketInfo } from '@/types/components';
 
 interface TicketRowProps {
@@ -19,10 +21,11 @@ export const TicketRow: React.FC<TicketRowProps> = ({
 }) => {
   const formattedDate = formatDate(date);
   const weekDay = getWeekDay(date);
+  const isHolidayDate = isHoliday(date);
 
   const renderTicketCell = (ticket?: TicketInfo) => {
     if (!ticket) {
-      return <TableCell className="text-gray-500">暂无数据</TableCell>;
+      return <TableCell className="text-gray-500">查询中...</TableCell>;
     }
 
     const hasTickets = ticket.remainingTickets > 0;
@@ -53,11 +56,16 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   };
 
   return (
-    <TableRow>
+    <TableRow className={isHolidayDate ? 'bg-green-50' : ''}>
       <TableCell>
         <div className="whitespace-nowrap">
           {formattedDate}
           <span className="ml-2 text-gray-500">{weekDay}</span>
+          {isHolidayDate && (
+            <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800 hover:bg-green-100">
+              节假日
+            </Badge>
+          )}
         </div>
       </TableCell>
       {renderTicketCell(morningTicket)}
