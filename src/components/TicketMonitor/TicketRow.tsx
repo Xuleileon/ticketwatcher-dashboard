@@ -2,17 +2,10 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/use-toast';
 import { formatDate, getWeekDay } from './DateUtils';
 import { isHoliday } from '@/lib/holidays';
-import type { TicketInfo } from '@/types/components';
-import { useToast } from '@/components/ui/use-toast';
-
-interface TicketRowProps {
-  date: Date;
-  morningTicket?: TicketInfo;
-  eveningTicket?: TicketInfo;
-  onPurchase: (date: string, trainNumber: string) => Promise<void>;
-}
+import type { TicketRowProps } from './types';
 
 export const TicketRow: React.FC<TicketRowProps> = ({
   date,
@@ -27,13 +20,14 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   const isHolidayDate = isHoliday(date);
 
   const handlePurchase = async (trainNumber: string) => {
-    setIsPurchasing(true);
+    if (isPurchasing) return;
     
+    setIsPurchasing(true);
     try {
       await onPurchase(formattedDate, trainNumber);
       toast({
-        title: "购票成功",
-        description: `已成功预订 ${trainNumber} 次列车票`,
+        title: "购票请求已发送",
+        description: `正在为您预订 ${trainNumber} 次列车票`,
       });
     } catch (error) {
       toast({
@@ -80,7 +74,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({
               disabled={isPurchasing || !hasTickets}
               onClick={() => handlePurchase(ticket.trainNumber)}
             >
-              {isPurchasing ? '购票中...' : '购票'}
+              {isPurchasing ? '购票中...' : hasTickets ? '购票' : '候补'}
             </Button>
           )}
         </div>

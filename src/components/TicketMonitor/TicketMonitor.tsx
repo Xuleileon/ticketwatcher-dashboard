@@ -5,12 +5,8 @@ import { Button } from '@/components/ui/button';
 import { ReloadIcon } from '@radix-ui/react-icons';
 import { Railway12306 } from '@/lib/railway';
 import { TicketTable } from './TicketTable';
-import type { CommutePreference, TicketInfo } from '@/types/components';
-
-interface TicketMonitorProps {
-  preferences?: CommutePreference;
-  onPurchase: (date: string, trainNumber: string) => Promise<void>;
-}
+import type { TicketMonitorProps } from './types';
+import type { TicketInfo } from '@/types/components';
 
 export const TicketMonitor: React.FC<TicketMonitorProps> = ({
   preferences,
@@ -34,7 +30,12 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
       
       setMorningTickets(morningTickets);
       setEveningTickets(eveningTickets);
-      setLastUpdateTime(new Date().toLocaleTimeString());
+      setLastUpdateTime(new Date().toLocaleTimeString('zh-CN', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      }));
     } catch (err) {
       console.error('Error fetching tickets:', err);
       setError(err instanceof Error ? err.message : '获取车票信息失败');
