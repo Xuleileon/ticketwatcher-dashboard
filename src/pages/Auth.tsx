@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangleIcon, InfoIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import type { AuthError } from '@supabase/supabase-js';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -24,11 +25,10 @@ const AuthPage = () => {
         navigate('/');
       }
 
-      if (event === 'USER_DELETED' || event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
         navigate('/auth');
       }
 
-      // Handle auth errors
       if (event === 'PASSWORD_RECOVERY') {
         toast({
           title: "密码重置邮件已发送",
@@ -39,6 +39,16 @@ const AuthPage = () => {
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handleError = (error: AuthError) => {
+    console.error('Auth error:', error);
+    setAuthError(error.message);
+    toast({
+      variant: "destructive",
+      title: "登录失败",
+      description: error.message,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -106,15 +116,6 @@ const AuthPage = () => {
               }}
               theme="light"
               providers={[]}
-              onError={(error) => {
-                console.error('Auth error:', error);
-                setAuthError(error.message);
-                toast({
-                  variant: "destructive",
-                  title: "登录失败",
-                  description: error.message,
-                });
-              }}
             />
           </div>
         </CardContent>
