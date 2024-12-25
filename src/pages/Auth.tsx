@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import { AlertTriangleIcon } from "lucide-react";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -30,8 +30,8 @@ const AuthPage = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Alert variant="warning" className="mb-4">
-              <ExclamationTriangleIcon className="h-4 w-4" />
+            <Alert variant="destructive" className="mb-4">
+              <AlertTriangleIcon className="h-4 w-4" />
               <AlertDescription>
                 首次使用请先点击"注册"创建账号。如遇到问题，请确保已经验证邮箱。
               </AlertDescription>
