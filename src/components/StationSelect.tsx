@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/popover";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from "@/components/ui/use-toast";
 
 interface Station {
   name: string;
@@ -31,18 +32,43 @@ interface StationSelectProps {
 
 export function StationSelect({ value, onChange, placeholder = "选择车站" }: StationSelectProps) {
   const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
-  const { data: stations = [], isLoading, error } = useQuery<Station[]>({
+  const { data: stations = [], isLoading, error } = useQuery({
     queryKey: ['stations'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('stations')
-        .select('name, code')
-        .order('name');
-      
-      if (error) throw error;
-      return data || [];
-    }
+      try {
+        const { data, error } = await supabase
+          .from('stations')
+          .select('name, code')
+          .order('name');
+        
+        if (error) {
+          throw error;
+        }
+
+        if (!data || data.length === 0) {
+          toast({
+            variant: "destructive",
+            title: "错误",
+            description: "未能加载车站信息，请稍后重试",
+          });
+          return [];
+        }
+
+        return data;
+      } catch (err) {
+        console.error('Error fetching stations:', err);
+        toast({
+          variant: "destructive",
+          title: "错误",
+          description: "加载车站信息失败",
+        });
+        return [];
+      }
+    },
+    retry: 2,
+    staleTime: 300000, // Cache for 5 minutes
   });
 
   const selectedStation = stations.find(station => station.code === value);
@@ -67,7 +93,7 @@ export function StationSelect({ value, onChange, placeholder = "选择车站" }:
           {isLoading ? (
             <CommandLoading>加载车站信息...</CommandLoading>
           ) : error ? (
-            <CommandEmpty>加载车站失败</CommandEmpty>
+            <CommandEmpty>加载车站失败，请重试</CommandEmpty>
           ) : stations.length === 0 ? (
             <CommandEmpty>未找到车站</CommandEmpty>
           ) : (
