@@ -14,6 +14,7 @@ export interface TicketInfo {
   arrivalTime: string;
   remainingTickets: number;
   price: number;
+  purchased?: boolean;
 }
 
 export interface CommutePreferencesProps {
@@ -28,4 +29,4 @@ export interface UserProfileProps {
 export interface TicketMonitorProps {
   preferences?: CommutePreference;
   onPurchase: (date: string, trainNumber: string) => Promise<void>;
-} 
+}
