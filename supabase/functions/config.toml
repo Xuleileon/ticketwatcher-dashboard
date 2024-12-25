@@ -1,4 +1,4 @@
-project_id = "ysaygdcpwfqkwysprwxz"
+project_id = "ovhgjefrdtqkszubpxnd"
 
-[query-tickets]
+[import-cities]
 verify_jwt = false
