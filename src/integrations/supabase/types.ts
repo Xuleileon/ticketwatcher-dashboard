@@ -41,6 +41,66 @@ export type Database = {
           },
         ]
       }
+      stations: {
+        Row: {
+          acronym: string | null
+          code: string
+          created_at: string
+          id: string
+          name: string
+          pinyin: string | null
+          updated_at: string
+        }
+        Insert: {
+          acronym?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          pinyin?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acronym?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          pinyin?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ticket_purchases: {
+        Row: {
+          created_at: string
+          id: string
+          purchase_status: string
+          train_number: string
+          travel_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          purchase_status?: string
+          train_number: string
+          travel_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          purchase_status?: string
+          train_number?: string
+          travel_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tokens: {
         Row: {
           access_token: string | null
@@ -96,6 +156,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_preferences: {
+        Row: {
+          created_at: string
+          evening_train_number: string
+          from_station: string
+          id: string
+          morning_train_number: string
+          seat_type: string
+          to_station: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evening_train_number: string
+          from_station: string
+          id?: string
+          morning_train_number: string
+          seat_type: string
+          to_station: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evening_train_number?: string
+          from_station?: string
+          id?: string
+          morning_train_number?: string
+          seat_type?: string
+          to_station?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       users: {
         Row: {
