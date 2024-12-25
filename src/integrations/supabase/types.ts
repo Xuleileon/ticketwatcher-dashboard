@@ -9,334 +9,111 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      profiles: {
-        Row: {
-          created_at: string
-          id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      rpa_tasks: {
+      refresh_logs: {
         Row: {
           created_at: string | null
-          end_time: string | null
-          enterprise_id: string | null
           error_message: string | null
-          flow_id: string | null
-          flow_process_no: string | null
           id: string
-          result: Json | null
-          rpa_machine_id: string | null
-          start_time: string | null
           status: string
-          updated_at: string | null
-          watch_task_id: string
+          token_id: string | null
         }
         Insert: {
           created_at?: string | null
-          end_time?: string | null
-          enterprise_id?: string | null
           error_message?: string | null
-          flow_id?: string | null
-          flow_process_no?: string | null
           id?: string
-          result?: Json | null
-          rpa_machine_id?: string | null
-          start_time?: string | null
-          status?: string
-          updated_at?: string | null
-          watch_task_id: string
-        }
-        Update: {
-          created_at?: string | null
-          end_time?: string | null
-          enterprise_id?: string | null
-          error_message?: string | null
-          flow_id?: string | null
-          flow_process_no?: string | null
-          id?: string
-          result?: Json | null
-          rpa_machine_id?: string | null
-          start_time?: string | null
-          status?: string
-          updated_at?: string | null
-          watch_task_id?: string
-        }
-        Relationships: []
-      }
-      stations: {
-        Row: {
-          acronym: string | null
-          code: string
-          created_at: string
-          id: string
-          name: string
-          pinyin: string | null
-          updated_at: string
-        }
-        Insert: {
-          acronym?: string | null
-          code: string
-          created_at?: string
-          id?: string
-          name: string
-          pinyin?: string | null
-          updated_at?: string
-        }
-        Update: {
-          acronym?: string | null
-          code?: string
-          created_at?: string
-          id?: string
-          name?: string
-          pinyin?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      ticket_purchases: {
-        Row: {
-          created_at: string | null
-          id: string
-          purchase_status: string
-          rpa_result: Json | null
-          train_number: string
-          travel_date: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          purchase_status?: string
-          rpa_result?: Json | null
-          train_number: string
-          travel_date: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          purchase_status?: string
-          rpa_result?: Json | null
-          train_number?: string
-          travel_date?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_purchases_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ticket_status: {
-        Row: {
-          created_at: string
-          direction: string
-          first_class_available: boolean | null
-          id: string
-          second_class_available: boolean | null
-          ticket_purchased: boolean | null
-          train_number: string
-          travel_date: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          direction: string
-          first_class_available?: boolean | null
-          id?: string
-          second_class_available?: boolean | null
-          ticket_purchased?: boolean | null
-          train_number: string
-          travel_date: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          direction?: string
-          first_class_available?: boolean | null
-          id?: string
-          second_class_available?: boolean | null
-          ticket_purchased?: boolean | null
-          train_number?: string
-          travel_date?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_status_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      train_preferences: {
-        Row: {
-          arrival_station: string
-          created_at: string
-          departure_station: string
-          departure_time: string
-          direction: string
-          evening_train_number: string | null
-          id: string
-          morning_train_number: string | null
-          preferred_seat_type: string
-          train_number: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          arrival_station: string
-          created_at?: string
-          departure_station: string
-          departure_time: string
-          direction: string
-          evening_train_number?: string | null
-          id?: string
-          morning_train_number?: string | null
-          preferred_seat_type?: string
-          train_number: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          arrival_station?: string
-          created_at?: string
-          departure_station?: string
-          departure_time?: string
-          direction?: string
-          evening_train_number?: string | null
-          id?: string
-          morning_train_number?: string | null
-          preferred_seat_type?: string
-          train_number?: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "train_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_preferences: {
-        Row: {
-          created_at: string
-          evening_train_number: string
-          from_station: string
-          id: string
-          morning_train_number: string
-          seat_type: string
-          to_station: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          evening_train_number: string
-          from_station: string
-          id?: string
-          morning_train_number: string
-          seat_type?: string
-          to_station: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          evening_train_number?: string
-          from_station?: string
-          id?: string
-          morning_train_number?: string
-          seat_type?: string
-          to_station?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      watch_tasks: {
-        Row: {
-          created_at: string | null
-          from_station: string
-          id: string
-          passenger_ids: string[] | null
-          preferred_trains: string[] | null
-          rpa_callback_url: string | null
-          rpa_webhook_url: string | null
-          seat_types: string[] | null
           status: string
-          to_station: string
-          travel_date: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          from_station: string
-          id?: string
-          passenger_ids?: string[] | null
-          preferred_trains?: string[] | null
-          rpa_callback_url?: string | null
-          rpa_webhook_url?: string | null
-          seat_types?: string[] | null
-          status?: string
-          to_station: string
-          travel_date: string
-          updated_at?: string | null
-          user_id: string
+          token_id?: string | null
         }
         Update: {
           created_at?: string | null
-          from_station?: string
+          error_message?: string | null
           id?: string
-          passenger_ids?: string[] | null
-          preferred_trains?: string[] | null
-          rpa_callback_url?: string | null
-          rpa_webhook_url?: string | null
-          seat_types?: string[] | null
           status?: string
-          to_station?: string
-          travel_date?: string
-          updated_at?: string | null
-          user_id?: string
+          token_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "watch_tasks_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "refresh_logs_token_id_fkey"
+            columns: ["token_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "tokens"
             referencedColumns: ["id"]
           },
         ]
+      }
+      tokens: {
+        Row: {
+          access_token: string | null
+          advertiser_id: string | null
+          app_id: string
+          app_secret: string
+          auth_token: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          raw_auth_response: Json | null
+          refresh_token: string | null
+          updated_at: string
+          user_id: string
+          view_tokens: boolean | null
+        }
+        Insert: {
+          access_token?: string | null
+          advertiser_id?: string | null
+          app_id: string
+          app_secret: string
+          auth_token?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          raw_auth_response?: Json | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_id: string
+          view_tokens?: boolean | null
+        }
+        Update: {
+          access_token?: string | null
+          advertiser_id?: string | null
+          app_id?: string
+          app_secret?: string
+          auth_token?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          raw_auth_response?: Json | null
+          refresh_token?: string | null
+          updated_at?: string
+          user_id?: string
+          view_tokens?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
