@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
+import { RPATask } from '@/types/database';
 
 // 获取未来15个工作日
 const getNext15WorkDays = () => {
@@ -36,7 +37,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
       for (const date of workDays) {
         const dateStr = date.toISOString().split('T')[0];
         const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/functions/v1/query-tickets`,
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/query-tickets`,
           {
             method: 'POST',
             headers: {
