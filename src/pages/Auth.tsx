@@ -42,11 +42,20 @@ const AuthPage = () => {
 
   const handleError = (error: AuthError) => {
     console.error('Auth error:', error);
-    setAuthError(error.message);
+    let errorMessage = "登录失败";
+    
+    // Map common error codes to user-friendly messages
+    if (error.message.includes("Invalid login credentials")) {
+      errorMessage = "邮箱或密码错误";
+    } else if (error.message.includes("Email not confirmed")) {
+      errorMessage = "请先验证邮箱后再登录";
+    }
+    
+    setAuthError(errorMessage);
     toast({
       variant: "destructive",
       title: "登录失败",
-      description: error.message,
+      description: errorMessage,
     });
   };
 
@@ -116,7 +125,6 @@ const AuthPage = () => {
               }}
               theme="light"
               providers={[]}
-              onError={handleError}
             />
           </div>
         </CardContent>
