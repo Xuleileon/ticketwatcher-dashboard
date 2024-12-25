@@ -2,19 +2,38 @@ import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, InfoIcon } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log("Auth state changed:", event, session);
-      if (session) {
+      
+      if (event === 'SIGNED_IN' && session) {
+        toast({
+          title: "登录成功",
+          description: "正在跳转到主页...",
+        });
         navigate('/');
+      }
+
+      if (event === 'USER_DELETED' || event === 'SIGNED_OUT') {
+        navigate('/auth');
+      }
+
+      // Handle auth errors
+      if (event === 'PASSWORD_RECOVERY') {
+        toast({
+          title: "密码重置邮件已发送",
+          description: "请检查您的邮箱",
+        });
       }
     });
 
@@ -30,12 +49,20 @@ const AuthPage = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Alert variant="destructive" className="mb-4">
-              <AlertTriangleIcon className="h-4 w-4" />
+            <Alert>
+              <InfoIcon className="h-4 w-4" />
               <AlertDescription>
-                首次使用请先点击"注册"创建账号。如遇到问题，请确保已经验证邮箱。
+                首次使用请先点击"注册"创建账号
               </AlertDescription>
             </Alert>
+            
+            {authError && (
+              <Alert variant="destructive">
+                <AlertTriangleIcon className="h-4 w-4" />
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            )}
+
             <Auth
               supabaseClient={supabase}
               appearance={{ 
@@ -55,16 +82,39 @@ const AuthPage = () => {
                     email_label: '邮箱',
                     password_label: '密码',
                     button_label: '登录',
+                    loading_button_label: '登录中...',
+                    email_input_placeholder: '请输入邮箱',
+                    password_input_placeholder: '请输入密码',
+                    link_text: '已有账号？立即登录',
                   },
                   sign_up: {
                     email_label: '邮箱',
                     password_label: '密码',
                     button_label: '注册',
+                    loading_button_label: '注册中...',
+                    email_input_placeholder: '请输入邮箱',
+                    password_input_placeholder: '请输入密码',
+                    link_text: '没有账号？立即注册',
+                  },
+                  forgotten_password: {
+                    link_text: '忘记密码？',
+                    button_label: '重置密码',
+                    loading_button_label: '发送重置邮件中...',
+                    confirmation_text: '请检查您的邮箱',
                   },
                 },
               }}
               theme="light"
               providers={[]}
+              onError={(error) => {
+                console.error('Auth error:', error);
+                setAuthError(error.message);
+                toast({
+                  variant: "destructive",
+                  title: "登录失败",
+                  description: error.message,
+                });
+              }}
             />
           </div>
         </CardContent>
