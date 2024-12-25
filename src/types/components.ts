@@ -1,14 +1,20 @@
-export interface TaskData {
+export interface CommutePreference {
   fromStation: string;
   toStation: string;
-  trainNumber?: string;
-  seatTypes: string[];
+  morningTrainNumber: string;
+  eveningTrainNumber: string;
+  seatType: string;
+}
+
+export interface TicketInfo {
+  date: string;
+  trainNumber: string;
+  remainingTickets: number;
+  price: number;
 }
 
 export interface CommutePreferencesProps {
-  onStartTask: (data: TaskData) => Promise<void>;
-  onStopTask: () => void;
-  isTaskRunning: boolean;
+  onPreferencesChange: (preferences: CommutePreference) => void;
 }
 
 export interface UserProfileProps {
@@ -16,5 +22,6 @@ export interface UserProfileProps {
 }
 
 export interface TicketMonitorProps {
-  taskId?: string;
+  preferences?: CommutePreference;
+  onPurchase: (date: string, trainNumber: string) => Promise<void>;
 } 

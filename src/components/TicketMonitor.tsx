@@ -1,120 +1,144 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/integrations/supabase/client';
-import type { RPATask } from '@/types/database';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import type { TicketMonitorProps, TicketInfo } from '@/types/components';
 
-interface TicketMonitorProps {
-  taskId?: string;
-}
+// 获取未来15个工作日
+const getNext15WorkDays = () => {
+  const workDays: Date[] = [];
+  let currentDate = new Date();
+  
+  while (workDays.length < 15) {
+    // 跳过周末（0是周日，6是周六）
+    if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+      workDays.push(new Date(currentDate));
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return workDays;
+};
 
-export const TicketMonitor: React.FC<TicketMonitorProps> = ({ taskId }) => {
-  const [taskStatus, setTaskStatus] = useState<RPATask | null>(null);
+export const TicketMonitor: React.FC<TicketMonitorProps> = ({
+  preferences,
+  onPurchase
+}) => {
+  const [ticketData, setTicketData] = useState<{[key: string]: TicketInfo[]}>({});
+  const workDays = getNext15WorkDays();
 
   useEffect(() => {
-    if (taskId) {
-      // 初始加载
-      fetchTaskStatus();
-      // 订阅状态更新
-      const subscription = supabase
-        .channel('rpa_tasks_changes')
-        .on(
-          'postgres_changes',
+    const fetchTicketInfo = async () => {
+      if (!preferences) return;
+
+      const newTicketData: {[key: string]: TicketInfo[]} = {};
+      
+      for (const date of workDays) {
+        const dateStr = date.toISOString().split('T')[0];
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/functions/v1/query-tickets`,
           {
-            event: '*',
-            schema: 'public',
-            table: 'rpa_tasks',
-            filter: `watch_task_id=eq.${taskId}`
-          },
-          (payload) => {
-            setTaskStatus(payload.new as RPATask);
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              date: dateStr,
+              fromStation: preferences.fromStation,
+              toStation: preferences.toStation,
+              trainNumbers: [preferences.morningTrainNumber, preferences.eveningTrainNumber]
+            })
           }
-        )
-        .subscribe();
+        );
 
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [taskId]);
+        if (response.ok) {
+          const data = await response.json();
+          newTicketData[dateStr] = data;
+        }
+      }
 
-  const fetchTaskStatus = async () => {
-    if (!taskId) return;
+      setTicketData(newTicketData);
+    };
 
-    const { data, error } = await supabase
-      .from('rpa_tasks')
-      .select('*')
-      .eq('watch_task_id', taskId)
-      .single();
+    fetchTicketInfo();
+    // 每分钟刷新一次
+    const interval = setInterval(fetchTicketInfo, 60000);
+    return () => clearInterval(interval);
+  }, [preferences]);
 
-    if (!error && data) {
-      setTaskStatus(data);
-    }
-  };
-
-  const getStatusDisplay = () => {
-    if (!taskStatus) return '等待中';
-    switch (taskStatus.status) {
-      case 'pending':
-        return '准备中';
-      case 'running':
-        return '执行中';
-      case 'completed':
-        return '已完成';
-      case 'failed':
-        return '失败';
-      default:
-        return '未知状态';
-    }
-  };
-
-  const getStatusVariant = () => {
-    if (!taskStatus) return 'secondary';
-    switch (taskStatus.status) {
-      case 'pending':
-        return 'secondary';
-      case 'running':
-        return 'default';
-      case 'completed':
-        return 'default';
-      case 'failed':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
+  if (!preferences) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>余票监控</CardTitle>
+          <CardDescription>请先设置通勤偏好</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>任务状态</CardTitle>
-        <CardDescription>实时监控抢票任务状态</CardDescription>
+        <CardTitle>余票监控</CardTitle>
+        <CardDescription>
+          {preferences.fromStation} → {preferences.toStation} 近15个工作日余票情况
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <Badge variant={getStatusVariant()}>
-                {getStatusDisplay()}
-              </Badge>
-            </div>
-            {taskStatus?.start_time && (
-              <div className="text-sm text-gray-500">
-                开始时间: {new Date(taskStatus.start_time).toLocaleString()}
-              </div>
-            )}
-          </div>
-          {taskStatus?.error_message && (
-            <div className="text-sm text-red-500">
-              错误信息: {taskStatus.error_message}
-            </div>
-          )}
-          {taskStatus?.end_time && (
-            <div className="text-sm text-gray-500">
-              结束时间: {new Date(taskStatus.end_time).toLocaleString()}
-            </div>
-          )}
-        </div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>日期</TableHead>
+              <TableHead>早班车次</TableHead>
+              <TableHead>早班余票</TableHead>
+              <TableHead>早班价格</TableHead>
+              <TableHead>操作</TableHead>
+              <TableHead>晚班车次</TableHead>
+              <TableHead>晚班余票</TableHead>
+              <TableHead>晚班价格</TableHead>
+              <TableHead>操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {workDays.map(date => {
+              const dateStr = date.toISOString().split('T')[0];
+              const tickets = ticketData[dateStr] || [];
+              const morningTicket = tickets.find(t => t.trainNumber === preferences.morningTrainNumber);
+              const eveningTicket = tickets.find(t => t.trainNumber === preferences.eveningTrainNumber);
+
+              return (
+                <TableRow key={dateStr}>
+                  <TableCell>{dateStr}</TableCell>
+                  <TableCell>{preferences.morningTrainNumber}</TableCell>
+                  <TableCell>{morningTicket?.remainingTickets || '查询中'}</TableCell>
+                  <TableCell>¥{morningTicket?.price || '--'}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      disabled={!morningTicket || morningTicket.remainingTickets === 0}
+                      onClick={() => onPurchase(dateStr, preferences.morningTrainNumber)}
+                    >
+                      购票
+                    </Button>
+                  </TableCell>
+                  <TableCell>{preferences.eveningTrainNumber}</TableCell>
+                  <TableCell>{eveningTicket?.remainingTickets || '查询中'}</TableCell>
+                  <TableCell>¥{eveningTicket?.price || '--'}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      disabled={!eveningTicket || eveningTicket.remainingTickets === 0}
+                      onClick={() => onPurchase(dateStr, preferences.eveningTrainNumber)}
+                    >
+                      购票
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

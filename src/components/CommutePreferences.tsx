@@ -2,38 +2,34 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CommutePreferencesProps } from '@/types/components';
 
 export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
-  onStartTask,
-  onStopTask,
-  isTaskRunning
+  onPreferencesChange
 }) => {
   const [fromStation, setFromStation] = useState('');
   const [toStation, setToStation] = useState('');
-  const [trainNumber, setTrainNumber] = useState('');
+  const [morningTrainNumber, setMorningTrainNumber] = useState('');
+  const [eveningTrainNumber, setEveningTrainNumber] = useState('');
   const [seatType, setSeatType] = useState('二等座');
 
-  const handleStart = () => {
-    if (!fromStation || !toStation) {
-      return;
-    }
-
-    onStartTask({
+  // 当任何值改变时，通知父组件
+  React.useEffect(() => {
+    onPreferencesChange({
       fromStation,
       toStation,
-      trainNumber: trainNumber || undefined,
-      seatTypes: [seatType]
+      morningTrainNumber,
+      eveningTrainNumber,
+      seatType
     });
-  };
+  }, [fromStation, toStation, morningTrainNumber, eveningTrainNumber, seatType]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>乘车偏好</CardTitle>
-        <CardDescription>设置您的乘车偏好信息</CardDescription>
+        <CardDescription>设置您的通勤车次信息</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -58,14 +54,25 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="trainNumber">车次号（选填）</Label>
+            <Label htmlFor="morningTrainNumber">早班车次</Label>
             <Input
-              id="trainNumber"
-              value={trainNumber}
-              onChange={(e) => setTrainNumber(e.target.value)}
-              placeholder="请输入优先车次"
+              id="morningTrainNumber"
+              value={morningTrainNumber}
+              onChange={(e) => setMorningTrainNumber(e.target.value)}
+              placeholder="请输入早班车次号"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="eveningTrainNumber">晚班车次</Label>
+            <Input
+              id="eveningTrainNumber"
+              value={eveningTrainNumber}
+              onChange={(e) => setEveningTrainNumber(e.target.value)}
+              placeholder="请输入晚班车次号"
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="seatType">座位类型</Label>
             <Select value={seatType} onValueChange={setSeatType}>
@@ -79,21 +86,6 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="flex justify-end space-x-2">
-          <Button
-            variant="outline"
-            onClick={onStopTask}
-            disabled={!isTaskRunning}
-          >
-            停止任务
-          </Button>
-          <Button
-            onClick={handleStart}
-            disabled={isTaskRunning || !fromStation || !toStation}
-          >
-            开始抢票
-          </Button>
         </div>
       </CardContent>
     </Card>

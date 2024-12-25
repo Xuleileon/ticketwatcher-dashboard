@@ -6,37 +6,21 @@ import { UserProfile } from '@/components/UserProfile';
 import { CommutePreferences } from '@/components/CommutePreferences';
 import { TicketMonitor } from '@/components/TicketMonitor';
 import { toast } from "@/hooks/use-toast";
-import type { TaskData } from '@/types/components';
+import type { CommutePreference } from '@/types/components';
 
 const Index = () => {
   const session = useSession();
-  const [isTaskRunning, setIsTaskRunning] = useState(false);
-  const [currentTaskId, setCurrentTaskId] = useState<string | undefined>();
+  const [preferences, setPreferences] = useState<CommutePreference | undefined>();
 
-  const handleStartTask = async (data: TaskData) => {
+  const handlePreferencesChange = (newPreferences: CommutePreference) => {
+    setPreferences(newPreferences);
+  };
+
+  const handlePurchase = async (date: string, trainNumber: string) => {
     try {
-      // 创建watch_task
-      const { data: task, error: taskError } = await supabase
-        .from('watch_tasks')
-        .insert({
-          user_id: session?.user?.id,
-          from_station: data.fromStation,
-          to_station: data.toStation,
-          travel_date: new Date().toISOString().split('T')[0],
-          preferred_trains: data.trainNumber ? [data.trainNumber] : [],
-          seat_types: data.seatTypes,
-          status: 'active',
-          rpa_webhook_url: import.meta.env.VITE_RPA_WEBHOOK_URL,
-          rpa_callback_url: `${import.meta.env.VITE_API_URL}/functions/v1/rpa-callback`
-        })
-        .select()
-        .single();
-
-      if (taskError) throw taskError;
-
-      // 触发RPA
+      // 调用RPA webhook进行购票
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/functions/v1/trigger-rpa`,
+        `${import.meta.env.VITE_RPA_WEBHOOK_URL}`,
         {
           method: 'POST',
           headers: {
@@ -44,55 +28,30 @@ const Index = () => {
             'Authorization': `Bearer ${session?.access_token}`
           },
           body: JSON.stringify({
-            taskId: task.id
+            fromStation: preferences?.fromStation,
+            toStation: preferences?.toStation,
+            trainNumber: trainNumber,
+            travelDate: date,
+            seatType: preferences?.seatType
           })
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to trigger RPA task');
+        throw new Error('购票请求失败');
       }
 
-      setIsTaskRunning(true);
-      setCurrentTaskId(task.id);
       toast({
-        title: "抢票任务已启动",
-        description: "RPA机器人将自动为您抢票",
+        title: "购票请求已发送",
+        description: "RPA机器人将为您执行购票操作",
       });
     } catch (error) {
-      console.error('Error starting task:', error);
+      console.error('Error purchasing ticket:', error);
       toast({
-        title: "启动任务失败",
+        title: "购票请求失败",
         description: error instanceof Error ? error.message : '未知错误',
         variant: "destructive",
       });
-    }
-  };
-
-  const handleStopTask = async () => {
-    if (currentTaskId) {
-      try {
-        const { error } = await supabase
-          .from('watch_tasks')
-          .update({ status: 'stopped' })
-          .eq('id', currentTaskId);
-
-        if (error) throw error;
-
-        setIsTaskRunning(false);
-        setCurrentTaskId(undefined);
-        toast({
-          title: "抢票任务已停止",
-          description: "您可以随时重新启动任务",
-        });
-      } catch (error) {
-        console.error('Error stopping task:', error);
-        toast({
-          title: "停止任务失败",
-          description: error instanceof Error ? error.message : '未知错误',
-          variant: "destructive",
-        });
-      }
     }
   };
 
@@ -112,11 +71,12 @@ const Index = () => {
 
         <UserProfile userId={session?.user?.id} />
         <CommutePreferences 
-          onStartTask={handleStartTask}
-          onStopTask={handleStopTask}
-          isTaskRunning={isTaskRunning}
+          onPreferencesChange={handlePreferencesChange}
         />
-        <TicketMonitor taskId={currentTaskId} />
+        <TicketMonitor 
+          preferences={preferences}
+          onPurchase={handlePurchase}
+        />
       </div>
     </div>
   );
