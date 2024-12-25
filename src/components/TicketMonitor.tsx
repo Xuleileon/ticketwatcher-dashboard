@@ -2,53 +2,48 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
 import { Railway12306 } from '@/lib/railway';
+import { isHoliday, Holidays } from '@/lib/holidays';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
-// 获取未来15个工作日（排除周末和节假日）
-const getNext15WorkDays = async () => {
-  const workDays: Date[] = [];
+// 获取未来15天
+const getNext15Days = () => {
+  const days: Date[] = [];
   const startDate = new Date();
   let currentDate = new Date(startDate);
-  const holidayCache = new Map<string, boolean>();
   
-  const isHoliday = async (date: Date): Promise<boolean> => {
-    const dateStr = date.toISOString().split('T')[0];
-    if (holidayCache.has(dateStr)) {
-      return holidayCache.get(dateStr)!;
-    }
-
-    try {
-      // 调用节假日API
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/proxy/holiday/info/${dateStr}`
-      );
-      if (!response.ok) throw new Error('节假日查询失败');
-      const data = await response.json();
-      const isHoliday = data.holiday || data.workday === false;
-      holidayCache.set(dateStr, isHoliday);
-      return isHoliday;
-    } catch (error) {
-      console.error('Error checking holiday:', error);
-      return false;
-    }
-  };
-  
-  while (workDays.length < 15) {
-    // 跳过周末
-    if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-      // 检查是否是节假日
-      const holiday = await isHoliday(currentDate);
-      if (!holiday) {
-        workDays.push(new Date(currentDate));
-      }
-    }
+  while (days.length < 15) {
+    days.push(new Date(currentDate));
     currentDate.setDate(currentDate.getDate() + 1);
   }
   
-  return workDays;
+  return days;
+};
+
+// 获取日期状态
+const getDateStatus = (date: Date): { isHoliday: boolean; message: string } => {
+  const dateStr = date.toISOString().split('T')[0];
+  const dayOfWeek = date.getDay();
+  
+  // 检查是否是法定节假日
+  if (Holidays.HOLIDAYS_2024[dateStr] || Holidays.HOLIDAYS_2025[dateStr] || Holidays.HOLIDAYS_2026[dateStr]) {
+    return { isHoliday: true, message: '法定节假日' };
+  }
+  
+  // 检查是否是调休工作日
+  if (Holidays.WORKDAYS_2024[dateStr] || Holidays.WORKDAYS_2025[dateStr] || Holidays.WORKDAYS_2026[dateStr]) {
+    return { isHoliday: false, message: '调休工作日' };
+  }
+  
+  // 检查是否是周末
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return { isHoliday: true, message: '周末' };
+  }
+  
+  return { isHoliday: false, message: '' };
 };
 
 export const TicketMonitor: React.FC<TicketMonitorProps> = ({
@@ -56,26 +51,26 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
   onPurchase
 }) => {
   const [ticketData, setTicketData] = useState<{[key: string]: TicketInfo[]}>({});
-  const [workDays, setWorkDays] = useState<Date[]>([]);
+  const [days, setDays] = useState<Date[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const railway = Railway12306.getInstance();
 
   useEffect(() => {
-    const initWorkDays = async () => {
-      const days = await getNext15WorkDays();
-      setWorkDays(days);
+    const initDays = () => {
+      const nextDays = getNext15Days();
+      setDays(nextDays);
       setIsLoading(false);
     };
-    initWorkDays();
+    initDays();
   }, []);
 
   useEffect(() => {
-    if (!preferences || workDays.length === 0) return;
+    if (!preferences || days.length === 0) return;
 
     const fetchTicketInfo = async () => {
       const newTicketData: {[key: string]: TicketInfo[]} = {};
       
-      for (const date of workDays) {
+      for (const date of days) {
         const dateStr = date.toISOString().split('T')[0];
         try {
           const tickets = await railway.queryTickets(
@@ -103,7 +98,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
     // 每分钟刷新一次
     const interval = setInterval(fetchTicketInfo, 60000);
     return () => clearInterval(interval);
-  }, [preferences, workDays]);
+  }, [preferences, days]);
 
   if (isLoading) {
     return (
@@ -132,7 +127,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
       <CardHeader>
         <CardTitle>余票监控</CardTitle>
         <CardDescription>
-          {preferences.fromStation} → {preferences.toStation} 近15个工作日余票情况
+          {preferences.fromStation} → {preferences.toStation} 近15天余票情况
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -141,6 +136,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
             <TableRow>
               <TableHead>日期</TableHead>
               <TableHead>星期</TableHead>
+              <TableHead>状态</TableHead>
               <TableHead>早班车次</TableHead>
               <TableHead>早班余票</TableHead>
               <TableHead>早班价格</TableHead>
@@ -152,16 +148,24 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {workDays.map(date => {
+            {days.map(date => {
               const dateStr = date.toISOString().split('T')[0];
               const tickets = ticketData[dateStr] || [];
               const morningTicket = tickets.find(t => t.trainNumber === preferences.morningTrainNumber);
               const eveningTicket = tickets.find(t => t.trainNumber === preferences.eveningTrainNumber);
+              const dateStatus = getDateStatus(date);
 
               return (
-                <TableRow key={dateStr}>
+                <TableRow key={dateStr} className={dateStatus.isHoliday ? 'bg-red-50' : ''}>
                   <TableCell>{dateStr}</TableCell>
                   <TableCell>周{WEEKDAYS[date.getDay()]}</TableCell>
+                  <TableCell>
+                    {dateStatus.message && (
+                      <Badge variant={dateStatus.isHoliday ? "destructive" : "secondary"}>
+                        {dateStatus.message}
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>{preferences.morningTrainNumber}</TableCell>
                   <TableCell>{morningTicket?.remainingTickets || '查询中'}</TableCell>
                   <TableCell>¥{morningTicket?.price || '--'}</TableCell>
@@ -170,6 +174,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
                       size="sm"
                       disabled={!morningTicket || morningTicket.remainingTickets === 0}
                       onClick={() => onPurchase(dateStr, preferences.morningTrainNumber)}
+                      variant={dateStatus.isHoliday ? "outline" : "default"}
                     >
                       购票
                     </Button>
@@ -182,6 +187,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
                       size="sm"
                       disabled={!eveningTicket || eveningTicket.remainingTickets === 0}
                       onClick={() => onPurchase(dateStr, preferences.eveningTrainNumber)}
+                      variant={dateStatus.isHoliday ? "outline" : "default"}
                     >
                       购票
                     </Button>

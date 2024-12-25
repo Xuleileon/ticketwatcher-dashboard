@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,8 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { toast } from "@/hooks/use-toast";
 import type { CommutePreferencesProps } from '@/types/components';
-import { Combobox } from '@/components/ui/combobox';
-import { Railway12306, Station } from '@/lib/railway';
 
 export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   onPreferencesChange
@@ -18,33 +16,6 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   const [eveningTrainNumber, setEveningTrainNumber] = useState('');
   const [seatType, setSeatType] = useState('二等座');
   const [isValidating, setIsValidating] = useState(false);
-  const [stations, setStations] = useState<Station[]>([]);
-  const [isLoadingStations, setIsLoadingStations] = useState(true);
-
-  useEffect(() => {
-    const fetchStations = async () => {
-      try {
-        const railway = Railway12306.getInstance();
-        const stationList = await railway.getStations();
-        setStations(stationList);
-      } catch (error) {
-        console.error('Error fetching stations:', error);
-        toast({
-          title: "获取站点失败",
-          description: "无法加载车站数据，请稍后重试",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingStations(false);
-      }
-    };
-
-    fetchStations();
-  }, []);
-
-  const validateStation = (station: string) => {
-    return stations.some(s => s.name === station);
-  };
 
   const validateTrainNumber = (trainNumber: string) => {
     return trainNumber.match(/^[GDCZTKYL]\d{1,4}$/);
@@ -53,13 +24,11 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   const handleSave = async () => {
     setIsValidating(true);
     try {
-      // 验证站点
-      const isFromStationValid = validateStation(fromStation);
-      const isToStationValid = validateStation(toStation);
-      if (!isFromStationValid || !isToStationValid) {
+      // 基本输入验证
+      if (!fromStation || !toStation) {
         toast({
-          title: "站点验证失败",
-          description: "请输入有效的车站名称",
+          title: "验证失败",
+          description: "请输入出发站和到达站",
           variant: "destructive",
         });
         return;
@@ -71,7 +40,7 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
       if (!isMorningTrainValid || !isEveningTrainValid) {
         toast({
           title: "车次验证失败",
-          description: "请输入有效的车次号",
+          description: "请输入正确的车次号，例如：G1234、D5678",
           variant: "destructive",
         });
         return;
@@ -111,30 +80,20 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="fromStation">出发站</Label>
-            <Combobox
-              items={stations.map(s => ({ 
-                label: `${s.name} (${s.pinyin})`, 
-                value: s.name,
-                description: s.code
-              }))}
+            <Input
+              id="fromStation"
               value={fromStation}
-              onChange={setFromStation}
+              onChange={(e) => setFromStation(e.target.value)}
               placeholder="请输入出发站"
-              isLoading={isLoadingStations}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="toStation">到达站</Label>
-            <Combobox
-              items={stations.map(s => ({ 
-                label: `${s.name} (${s.pinyin})`, 
-                value: s.name,
-                description: s.code
-              }))}
+            <Input
+              id="toStation"
               value={toStation}
-              onChange={setToStation}
+              onChange={(e) => setToStation(e.target.value)}
               placeholder="请输入到达站"
-              isLoading={isLoadingStations}
             />
           </div>
         </div>
@@ -145,7 +104,7 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
               id="morningTrainNumber"
               value={morningTrainNumber}
               onChange={(e) => setMorningTrainNumber(e.target.value.toUpperCase())}
-              placeholder="请输入早班车次号"
+              placeholder="请输入早班车次号，例如：G1234"
             />
           </div>
           <div className="space-y-2">
@@ -154,7 +113,7 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
               id="eveningTrainNumber"
               value={eveningTrainNumber}
               onChange={(e) => setEveningTrainNumber(e.target.value.toUpperCase())}
-              placeholder="请输入晚班车次号"
+              placeholder="请输入晚班车次号，例如：G5678"
             />
           </div>
         </div>
