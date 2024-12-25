@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,6 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { toast } from "@/hooks/use-toast";
 import type { CommutePreferencesProps } from '@/types/components';
+import { Combobox } from '@/components/ui/combobox';
+
+interface Station {
+  name: string;
+  code: string;
+  pinyin: string;
+  acronym: string;
+}
 
 export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   onPreferencesChange
@@ -16,76 +24,69 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   const [eveningTrainNumber, setEveningTrainNumber] = useState('');
   const [seatType, setSeatType] = useState('二等座');
   const [isValidating, setIsValidating] = useState(false);
+  const [stations, setStations] = useState<Station[]>([]);
+  const [isLoadingStations, setIsLoadingStations] = useState(true);
 
-  const validateStation = async (station: string) => {
-    try {
-      const response = await fetch(
-        `https://kyfw.12306.cn/otn/resources/js/framework/station_name.js`
-      );
-      if (!response.ok) throw new Error('站点验证失败');
-      const text = await response.text();
-      // 解析12306返回的站点数据
-      const stationData = text.split('@').slice(1);
-      return stationData.some(station => station.includes(station));
-    } catch (error) {
-      console.error('Error validating station:', error);
-      return false;
-    }
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stations`
+        );
+        if (!response.ok) throw new Error('Failed to fetch stations');
+        const data = await response.json();
+        setStations(data);
+      } catch (error) {
+        console.error('Error fetching stations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load station data",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingStations(false);
+      }
+    };
+
+    fetchStations();
+  }, []);
+
+  const validateStation = (station: string) => {
+    return stations.some(s => s.name === station);
   };
 
-  const validateTrainNumber = async (trainNumber: string) => {
-    if (!trainNumber.match(/^[GDCZTKYL]\d{1,4}$/)) {
-      return false;
-    }
-    try {
-      // 调用12306列车查询接口验证车次
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/proxy/otn/queryTrainInfo/query`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: `trainNo=${trainNumber}`
-        }
-      );
-      if (!response.ok) throw new Error('车次验证失败');
-      const data = await response.json();
-      return data.status && data.data.length > 0;
-    } catch (error) {
-      console.error('Error validating train number:', error);
-      return false;
-    }
+  const validateTrainNumber = (trainNumber: string) => {
+    return trainNumber.match(/^[GDCZTKYL]\d{1,4}$/);
   };
 
   const handleSave = async () => {
     setIsValidating(true);
     try {
-      // 验证站点
-      const isFromStationValid = await validateStation(fromStation);
-      const isToStationValid = await validateStation(toStation);
+      // Validate stations
+      const isFromStationValid = validateStation(fromStation);
+      const isToStationValid = validateStation(toStation);
       if (!isFromStationValid || !isToStationValid) {
         toast({
-          title: "站点验证失败",
-          description: "请输入有效的车站名称",
+          title: "Station validation failed",
+          description: "Please enter valid station names",
           variant: "destructive",
         });
         return;
       }
 
-      // 验证车次
-      const isMorningTrainValid = await validateTrainNumber(morningTrainNumber);
-      const isEveningTrainValid = await validateTrainNumber(eveningTrainNumber);
+      // Validate train numbers
+      const isMorningTrainValid = validateTrainNumber(morningTrainNumber);
+      const isEveningTrainValid = validateTrainNumber(eveningTrainNumber);
       if (!isMorningTrainValid || !isEveningTrainValid) {
         toast({
-          title: "车次验证失败",
-          description: "请输入有效的车次号",
+          title: "Train number validation failed",
+          description: "Please enter valid train numbers",
           variant: "destructive",
         });
         return;
       }
 
-      // 所有验证通过，保存设置
+      // Save preferences
       onPreferencesChange({
         fromStation,
         toStation,
@@ -95,13 +96,13 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
       });
 
       toast({
-        title: "保存成功",
-        description: "乘车偏好设置已更新",
+        title: "Success",
+        description: "Commute preferences have been updated",
       });
     } catch (error) {
       toast({
-        title: "保存失败",
-        description: error instanceof Error ? error.message : "未知错误",
+        title: "Error",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       });
     } finally {
@@ -119,20 +120,22 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="fromStation">出发站</Label>
-            <Input
-              id="fromStation"
+            <Combobox
+              items={stations.map(s => ({ label: s.name, value: s.name }))}
               value={fromStation}
-              onChange={(e) => setFromStation(e.target.value)}
+              onChange={setFromStation}
               placeholder="请输入出发站"
+              isLoading={isLoadingStations}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="toStation">到达站</Label>
-            <Input
-              id="toStation"
+            <Combobox
+              items={stations.map(s => ({ label: s.name, value: s.name }))}
               value={toStation}
-              onChange={(e) => setToStation(e.target.value)}
+              onChange={setToStation}
               placeholder="请输入到达站"
+              isLoading={isLoadingStations}
             />
           </div>
         </div>
