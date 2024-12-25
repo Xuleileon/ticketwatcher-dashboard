@@ -46,7 +46,7 @@ const AuthPage = () => {
     
     // Map common error codes to user-friendly messages
     if (error.message.includes("Invalid login credentials")) {
-      errorMessage = "邮箱或密码错误";
+      errorMessage = "邮箱或密码错误，如果您是新用户请先注册";
     } else if (error.message.includes("Email not confirmed")) {
       errorMessage = "请先验证邮箱后再登录";
     } else if (error.message.includes("User already registered")) {
