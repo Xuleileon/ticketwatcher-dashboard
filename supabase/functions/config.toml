@@ -2,3 +2,9 @@ project_id = "ovhgjefrdtqkszubpxnd"
 
 [import-cities]
 verify_jwt = false
+
+[query-tickets]
+verify_jwt = false
+
+[notify-user]
+verify_jwt = false

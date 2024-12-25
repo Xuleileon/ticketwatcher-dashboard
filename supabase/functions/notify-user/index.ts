@@ -1,10 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.1';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,12 +12,17 @@ serve(async (req) => {
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false
+        }
+      }
     );
 
     // Get user information
     const { data: user, error: userError } = await supabaseClient
-      .from('profiles')
+      .from('users')
       .select('email')
       .eq('id', userId)
       .single();
@@ -47,6 +48,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
+    console.error('Error in notify-user function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
