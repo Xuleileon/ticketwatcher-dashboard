@@ -1,23 +1,11 @@
-export interface TicketInfo {
+export interface OrderRequest {
+  verificationCode: string;
+  dates: string[];
   trainNo: string;
-  fromStation: string;
-  toStation: string;
-  departureTime: string;
-  arrivalTime: string;
-  duration: string;
-  seats: {
-    secondClass: string;
-    firstClass: string;
-    business: string;
-    noSeat: string;
-    hardSeat: string;
-    hardSleeper: string;
-    softSleeper: string;
-  };
 }
 
-export interface OrderResult {
+export interface OrderResponse {
   success: boolean;
-  orderNo?: string;
+  message?: string;
   error?: string;
 }
