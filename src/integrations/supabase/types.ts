@@ -246,6 +246,42 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          created_at: string
+          evening_train_number: string
+          from_station: string
+          id: string
+          morning_train_number: string
+          seat_type: string
+          to_station: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          evening_train_number: string
+          from_station: string
+          id?: string
+          morning_train_number: string
+          seat_type?: string
+          to_station: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          evening_train_number?: string
+          from_station?: string
+          id?: string
+          morning_train_number?: string
+          seat_type?: string
+          to_station?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       watch_tasks: {
         Row: {
           created_at: string | null

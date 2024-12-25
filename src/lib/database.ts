@@ -11,8 +11,8 @@ export const database = {
           user_id: userId,
           from_station: preferences.fromStation,
           to_station: preferences.toStation,
-          morning_train: preferences.morningTrainNumber,
-          evening_train: preferences.eveningTrainNumber,
+          morning_train_number: preferences.morningTrainNumber,
+          evening_train_number: preferences.eveningTrainNumber,
           seat_type: preferences.seatType,
           updated_at: new Date().toISOString()
         });
@@ -32,7 +32,7 @@ export const database = {
         .from('user_preferences')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       if (!data) return null;
@@ -40,8 +40,8 @@ export const database = {
       return {
         fromStation: data.from_station,
         toStation: data.to_station,
-        morningTrainNumber: data.morning_train,
-        eveningTrainNumber: data.evening_train,
+        morningTrainNumber: data.morning_train_number,
+        eveningTrainNumber: data.evening_train_number,
         seatType: data.seat_type
       };
     } catch (error) {
@@ -65,4 +65,4 @@ export const database = {
       return false;
     }
   }
-}; 
+};
