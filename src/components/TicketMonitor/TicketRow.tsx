@@ -29,13 +29,8 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   const handlePurchase = async (trainNumber: string) => {
     setIsPurchasing(true);
     
-    const purchasePromise = onPurchase(formattedDate, trainNumber);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Purchase timeout')), 50000)
-    );
-
     try {
-      await Promise.race([purchasePromise, timeoutPromise]);
+      await onPurchase(formattedDate, trainNumber);
       toast({
         title: "购票成功",
         description: `已成功预订 ${trainNumber} 次列车票`,
@@ -57,8 +52,16 @@ export const TicketRow: React.FC<TicketRowProps> = ({
     }
 
     const hasTickets = ticket.remainingTickets > 0;
-    const statusText = hasTickets ? `余票: ${ticket.remainingTickets}` : '无票';
-    const statusClass = hasTickets ? 'text-green-600' : 'text-red-600';
+    const statusText = ticket.purchased 
+      ? '已购票' 
+      : hasTickets 
+        ? `余票: ${ticket.remainingTickets}` 
+        : '无票';
+    const statusClass = ticket.purchased 
+      ? 'text-green-600' 
+      : hasTickets 
+        ? 'text-blue-600' 
+        : 'text-red-600';
 
     return (
       <TableCell>
@@ -70,14 +73,16 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           <div className="text-sm text-gray-500">
             {ticket.departureTime} - {ticket.arrivalTime}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isPurchasing}
-            onClick={() => handlePurchase(ticket.trainNumber)}
-          >
-            {isPurchasing ? '购票中...' : '购票'}
-          </Button>
+          {!ticket.purchased && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isPurchasing || !hasTickets}
+              onClick={() => handlePurchase(ticket.trainNumber)}
+            >
+              {isPurchasing ? '购票中...' : '购票'}
+            </Button>
+          )}
         </div>
       </TableCell>
     );

@@ -1,17 +1,9 @@
-import { TicketInfo, CommutePreference } from '@/types/components';
-import { getNext15WorkDays, formatDate } from '@/components/TicketMonitor/DateUtils';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface Station {
-  name: string;
-  code: string;
-  pinyin: string;
-  acronym: string;
-}
+import type { TicketInfo, CommutePreference } from '@/types/components';
 
 export class Railway12306 {
   private static instance: Railway12306;
-  private stationsCache: Map<string, Station> = new Map();
+  private stationsCache: Map<string, { code: string }> = new Map();
   
   private constructor() {
     this.loadStations();
@@ -28,12 +20,12 @@ export class Railway12306 {
     try {
       const { data: stations, error } = await supabase
         .from('stations')
-        .select('*');
+        .select('name, code');
 
       if (error) throw error;
 
-      stations.forEach((station: Station) => {
-        this.stationsCache.set(station.name, station);
+      stations.forEach((station: { name: string; code: string }) => {
+        this.stationsCache.set(station.name, { code: station.code });
       });
       
       console.log('Stations loaded:', this.stationsCache.size);
@@ -54,22 +46,45 @@ export class Railway12306 {
 
   async queryTicketsByDate(date: string, fromStation: string, toStation: string): Promise<TicketInfo[]> {
     try {
-      console.log('Querying tickets for:', { date, fromStation, toStation });
-      
+      const fromCode = await this.getStationCode(fromStation);
+      const toCode = await this.getStationCode(toStation);
+
+      if (!fromCode || !toCode) {
+        console.error(`Station codes not found for ${fromStation} or ${toStation}`);
+        return [];
+      }
+
+      console.log('Querying tickets with:', { date, fromCode, toCode });
+
       const { data, error } = await supabase.functions.invoke('query-tickets', {
         body: {
           date,
-          fromStation,
-          toStation
+          fromStation: fromCode,
+          toStation: toCode
         }
       });
 
       if (error) {
-        console.error('Error querying tickets:', error);
-        throw error;
+        console.error('Error from query-tickets function:', error);
+        return [];
       }
 
-      return data || [];
+      // Check if user has purchased tickets for this date
+      const { data: purchases } = await supabase
+        .from('ticket_purchases')
+        .select('train_number, purchase_status')
+        .eq('travel_date', date)
+        .eq('user_id', (await supabase.auth.getUser()).data.user?.id);
+
+      // Merge purchase status with ticket info
+      return (data || []).map((ticket: TicketInfo) => ({
+        ...ticket,
+        purchased: purchases?.some(p => 
+          p.train_number === ticket.trainNumber && 
+          p.purchase_status === 'completed'
+        ) || false
+      }));
+
     } catch (error) {
       console.error('Error in queryTicketsByDate:', error);
       return [];
@@ -80,12 +95,12 @@ export class Railway12306 {
     morningTickets: Record<string, TicketInfo>;
     eveningTickets: Record<string, TicketInfo>;
   }> {
-    const workDays = getNext15WorkDays();
+    const workDays = this.getNext15WorkDays();
     const morningTickets: Record<string, TicketInfo> = {};
     const eveningTickets: Record<string, TicketInfo> = {};
 
     for (const date of workDays) {
-      const dateStr = formatDate(date);
+      const dateStr = this.formatDate(date);
       const tickets = await this.queryTicketsByDate(
         date.toISOString().split('T')[0],
         preferences.fromStation,
@@ -104,5 +119,27 @@ export class Railway12306 {
     }
 
     return { morningTickets, eveningTickets };
+  }
+
+  private getNext15WorkDays(): Date[] {
+    const days: Date[] = [];
+    const startDate = new Date();
+    let currentDate = new Date(startDate);
+    
+    while (days.length < 15) {
+      // Skip weekends (0 = Sunday, 6 = Saturday)
+      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+        days.push(new Date(currentDate));
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return days;
+  }
+
+  private formatDate(date: Date): string {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${month}-${day}`;
   }
 }
