@@ -6,167 +6,119 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       profiles: {
         Row: {
-          created_at: string
           id: string
+          created_at: string
           updated_at: string
         }
         Insert: {
-          created_at?: string
           id: string
+          created_at?: string
           updated_at?: string
         }
         Update: {
-          created_at?: string
           id?: string
+          created_at?: string
           updated_at?: string
         }
-        Relationships: []
       }
-      ticket_purchases: {
+      watch_tasks: {
         Row: {
-          created_at: string | null
           id: string
-          purchase_status: string
-          rpa_result: Json | null
-          train_number: string
-          travel_date: string
-          updated_at: string | null
           user_id: string
+          from_station: string
+          to_station: string
+          travel_date: string
+          preferred_trains: string[]
+          seat_types: string[]
+          passenger_ids: string[]
+          status: string
+          rpa_webhook_url: string | null
+          rpa_callback_url: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
           id?: string
-          purchase_status?: string
-          rpa_result?: Json | null
-          train_number: string
-          travel_date: string
-          updated_at?: string | null
           user_id: string
+          from_station: string
+          to_station: string
+          travel_date: string
+          preferred_trains?: string[]
+          seat_types?: string[]
+          passenger_ids?: string[]
+          status?: string
+          rpa_webhook_url?: string | null
+          rpa_callback_url?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
           id?: string
-          purchase_status?: string
-          rpa_result?: Json | null
-          train_number?: string
-          travel_date?: string
-          updated_at?: string | null
           user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_purchases_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      ticket_status: {
-        Row: {
-          created_at: string
-          direction: string
-          first_class_available: boolean | null
-          id: string
-          second_class_available: boolean | null
-          ticket_purchased: boolean | null
-          train_number: string
-          travel_date: string
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          direction: string
-          first_class_available?: boolean | null
-          id?: string
-          second_class_available?: boolean | null
-          ticket_purchased?: boolean | null
-          train_number: string
-          travel_date: string
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          direction?: string
-          first_class_available?: boolean | null
-          id?: string
-          second_class_available?: boolean | null
-          ticket_purchased?: boolean | null
-          train_number?: string
+          from_station?: string
+          to_station?: string
           travel_date?: string
+          preferred_trains?: string[]
+          seat_types?: string[]
+          passenger_ids?: string[]
+          status?: string
+          rpa_webhook_url?: string | null
+          rpa_callback_url?: string | null
+          created_at?: string
           updated_at?: string
-          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_status_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
-      train_preferences: {
+      rpa_tasks: {
         Row: {
-          arrival_station: string
-          created_at: string
-          departure_station: string
-          departure_time: string
-          direction: string
-          evening_train_number: string | null
           id: string
-          morning_train_number: string | null
-          preferred_seat_type: string
-          train_number: string
+          watch_task_id: string
+          status: string
+          rpa_machine_id: string | null
+          enterprise_id: string | null
+          flow_id: string | null
+          flow_process_no: string | null
+          start_time: string | null
+          end_time: string | null
+          result: Json | null
+          error_message: string | null
+          created_at: string
           updated_at: string
-          user_id: string | null
         }
         Insert: {
-          arrival_station: string
-          created_at?: string
-          departure_station: string
-          departure_time: string
-          direction: string
-          evening_train_number?: string | null
           id?: string
-          morning_train_number?: string | null
-          preferred_seat_type?: string
-          train_number: string
+          watch_task_id: string
+          status?: string
+          rpa_machine_id?: string | null
+          enterprise_id?: string | null
+          flow_id?: string | null
+          flow_process_no?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          result?: Json | null
+          error_message?: string | null
+          created_at?: string
           updated_at?: string
-          user_id?: string | null
         }
         Update: {
-          arrival_station?: string
-          created_at?: string
-          departure_station?: string
-          departure_time?: string
-          direction?: string
-          evening_train_number?: string | null
           id?: string
-          morning_train_number?: string | null
-          preferred_seat_type?: string
-          train_number?: string
+          watch_task_id?: string
+          status?: string
+          rpa_machine_id?: string | null
+          enterprise_id?: string | null
+          flow_id?: string | null
+          flow_process_no?: string | null
+          start_time?: string | null
+          end_time?: string | null
+          result?: Json | null
+          error_message?: string | null
+          created_at?: string
           updated_at?: string
-          user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "train_preferences_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {
@@ -183,100 +135,3 @@ export type Database = {
     }
   }
 }
-
-type PublicSchema = Database[Extract<keyof Database, "public">]
-
-export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never

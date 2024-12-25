@@ -2,17 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
-import type { TicketMonitorProps } from '@/types/components';
+import type { RPATask } from '@/types/database';
 
-interface TaskStatus {
-  status: string;
-  error_message?: string | null;
-  start_time?: string | null;
-  end_time?: string | null;
+interface TicketMonitorProps {
+  taskId?: string;
 }
 
 export const TicketMonitor: React.FC<TicketMonitorProps> = ({ taskId }) => {
-  const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null);
+  const [taskStatus, setTaskStatus] = useState<RPATask | null>(null);
 
   useEffect(() => {
     if (taskId) {
@@ -30,7 +27,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({ taskId }) => {
             filter: `watch_task_id=eq.${taskId}`
           },
           (payload) => {
-            setTaskStatus(payload.new as TaskStatus);
+            setTaskStatus(payload.new as RPATask);
           }
         )
         .subscribe();
@@ -46,7 +43,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({ taskId }) => {
 
     const { data, error } = await supabase
       .from('rpa_tasks')
-      .select('status, error_message, start_time, end_time')
+      .select('*')
       .eq('watch_task_id', taskId)
       .single();
 

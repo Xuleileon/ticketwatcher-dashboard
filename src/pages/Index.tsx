@@ -25,6 +25,7 @@ const Index = () => {
           travel_date: new Date().toISOString().split('T')[0],
           preferred_trains: data.trainNumber ? [data.trainNumber] : [],
           seat_types: data.seatTypes,
+          status: 'active',
           rpa_webhook_url: import.meta.env.VITE_RPA_WEBHOOK_URL,
           rpa_callback_url: `${import.meta.env.VITE_API_URL}/functions/v1/rpa-callback`
         })
@@ -40,7 +41,7 @@ const Index = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${session?.access_token}`
           },
           body: JSON.stringify({
             taskId: task.id
