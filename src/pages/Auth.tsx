@@ -49,12 +49,14 @@ const AuthPage = () => {
       errorMessage = "邮箱或密码错误";
     } else if (error.message.includes("Email not confirmed")) {
       errorMessage = "请先验证邮箱后再登录";
+    } else if (error.message.includes("User already registered")) {
+      errorMessage = "该邮箱已注册，请直接登录";
     }
     
     setAuthError(errorMessage);
     toast({
       variant: "destructive",
-      title: "登录失败",
+      title: "操作失败",
       description: errorMessage,
     });
   };
