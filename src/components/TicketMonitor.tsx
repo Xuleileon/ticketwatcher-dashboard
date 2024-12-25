@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { VerificationDialog } from './VerificationDialog';
 
@@ -28,30 +28,62 @@ export const TicketMonitor = () => {
     dates: string[];
     trainNo: string;
   } | null>(null);
+  const monitoringInterval = React.useRef<number>();
 
   React.useEffect(() => {
     if (session?.user?.id) {
       fetchTicketStatus();
     }
+    return () => {
+      if (monitoringInterval.current) {
+        clearInterval(monitoringInterval.current);
+      }
+    };
   }, [session?.user?.id]);
 
   const fetchTicketStatus = async () => {
-    const { data, error } = await supabase
-      .from('ticket_status')
-      .select('*')
-      .eq('user_id', session?.user?.id)
-      .order('travel_date', { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from('ticket_status')
+        .select('*')
+        .eq('user_id', session?.user?.id)
+        .order('travel_date', { ascending: true });
 
-    if (error) {
+      if (error) throw error;
+      setTicketStatus(data || []);
+    } catch (error) {
+      console.error('Error fetching ticket status:', error);
       toast({
         title: "获取车票状态失败",
-        description: error.message,
+        description: error instanceof Error ? error.message : "请重试",
         variant: "destructive",
       });
-      return;
     }
+  };
 
-    setTicketStatus(data || []);
+  const startMonitoring = () => {
+    if (!isMonitoring) {
+      setIsMonitoring(true);
+      monitoringInterval.current = window.setInterval(fetchTicketStatus, 30000); // Check every 30 seconds
+      toast({
+        title: "开始监控",
+        description: "系统将每30秒自动检查一次车票状态",
+      });
+    }
+  };
+
+  const stopMonitoring = () => {
+    if (isMonitoring) {
+      setIsMonitoring(false);
+      if (monitoringInterval.current) {
+        clearInterval(monitoringInterval.current);
+        monitoringInterval.current = undefined;
+      }
+      toast({
+        title: "停止监控",
+        description: "已停止自动检查车票状态",
+      });
+    }
   };
 
   const handleVerification = async (code: string) => {
@@ -83,6 +115,7 @@ export const TicketMonitor = () => {
       });
     } finally {
       setCurrentPurchase(null);
+      setShowVerification(false);
     }
   };
 
