@@ -32,7 +32,7 @@ interface StationSelectProps {
 export function StationSelect({ value, onChange, placeholder = "选择车站" }: StationSelectProps) {
   const [open, setOpen] = useState(false);
 
-  const { data: stations, isLoading, error } = useQuery<Station[]>({
+  const { data: stations = [], isLoading, error } = useQuery<Station[]>({
     queryKey: ['stations'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -42,11 +42,10 @@ export function StationSelect({ value, onChange, placeholder = "选择车站" }:
       
       if (error) throw error;
       return data || [];
-    },
-    initialData: [], // Ensure we always have an array to iterate over
+    }
   });
 
-  const selectedStation = stations?.find(station => station.code === value);
+  const selectedStation = stations.find(station => station.code === value);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -72,7 +71,7 @@ export function StationSelect({ value, onChange, placeholder = "选择车站" }:
           ) : stations.length === 0 ? (
             <CommandEmpty>未找到车站</CommandEmpty>
           ) : (
-            <CommandGroup className="max-h-60 overflow-auto">
+            <CommandGroup>
               {stations.map((station) => (
                 <CommandItem
                   key={station.code}

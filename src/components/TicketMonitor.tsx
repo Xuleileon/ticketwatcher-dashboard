@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
 import { Railway12306 } from '@/lib/railway';
-import { isHoliday, Holidays } from '@/lib/holidays';
+import { isHoliday } from '@/lib/holidays';
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -21,29 +21,6 @@ const getNext15Days = () => {
   }
   
   return days;
-};
-
-// 获取日期状态
-const getDateStatus = (date: Date): { isHoliday: boolean; message: string } => {
-  const dateStr = date.toISOString().split('T')[0];
-  const dayOfWeek = date.getDay();
-  
-  // 检查是否是法定节假日
-  if (Holidays.HOLIDAYS_2024[dateStr] || Holidays.HOLIDAYS_2025[dateStr] || Holidays.HOLIDAYS_2026[dateStr]) {
-    return { isHoliday: true, message: '法定节假日' };
-  }
-  
-  // 检查是否是调休工作日
-  if (Holidays.WORKDAYS_2024[dateStr] || Holidays.WORKDAYS_2025[dateStr] || Holidays.WORKDAYS_2026[dateStr]) {
-    return { isHoliday: false, message: '调休工作日' };
-  }
-  
-  // 检查是否是周末
-  if (dayOfWeek === 0 || dayOfWeek === 6) {
-    return { isHoliday: true, message: '周末' };
-  }
-  
-  return { isHoliday: false, message: '' };
 };
 
 export const TicketMonitor: React.FC<TicketMonitorProps> = ({
@@ -151,18 +128,18 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
             {days.map(date => {
               const dateStr = date.toISOString().split('T')[0];
               const tickets = ticketData[dateStr] || [];
-              const morningTicket = tickets.find(t => t.trainNumber === preferences.morningTrainNumber);
-              const eveningTicket = tickets.find(t => t.trainNumber === preferences.eveningTrainNumber);
-              const dateStatus = getDateStatus(date);
+              const morningTicket = tickets.find(t => t.trainNumber === preferences?.morningTrainNumber);
+              const eveningTicket = tickets.find(t => t.trainNumber === preferences?.eveningTrainNumber);
+              const dateStatus = isHoliday(date);
 
               return (
-                <TableRow key={dateStr} className={dateStatus.isHoliday ? 'bg-red-50' : ''}>
+                <TableRow key={dateStr} className={dateStatus ? 'bg-red-50' : ''}>
                   <TableCell>{dateStr}</TableCell>
                   <TableCell>周{WEEKDAYS[date.getDay()]}</TableCell>
                   <TableCell>
-                    {dateStatus.message && (
-                      <Badge variant={dateStatus.isHoliday ? "destructive" : "secondary"}>
-                        {dateStatus.message}
+                    {dateStatus && (
+                      <Badge variant="destructive">
+                        节假日
                       </Badge>
                     )}
                   </TableCell>
@@ -174,7 +151,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
                       size="sm"
                       disabled={!morningTicket || morningTicket.remainingTickets === 0}
                       onClick={() => onPurchase(dateStr, preferences.morningTrainNumber)}
-                      variant={dateStatus.isHoliday ? "outline" : "default"}
+                      variant={dateStatus ? "outline" : "default"}
                     >
                       购票
                     </Button>
@@ -187,7 +164,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
                       size="sm"
                       disabled={!eveningTicket || eveningTicket.remainingTickets === 0}
                       onClick={() => onPurchase(dateStr, preferences.eveningTrainNumber)}
-                      variant={dateStatus.isHoliday ? "outline" : "default"}
+                      variant={dateStatus ? "outline" : "default"}
                     >
                       购票
                     </Button>
