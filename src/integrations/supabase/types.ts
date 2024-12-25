@@ -75,6 +75,36 @@ export type Database = {
         }
         Relationships: []
       }
+      stations: {
+        Row: {
+          acronym: string | null
+          code: string
+          created_at: string
+          id: string
+          name: string
+          pinyin: string | null
+          updated_at: string
+        }
+        Insert: {
+          acronym?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          pinyin?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acronym?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          pinyin?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ticket_purchases: {
         Row: {
           created_at: string | null
