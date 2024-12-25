@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { formatDate, getWeekDay } from './DateUtils';
 import { isHoliday } from '@/lib/holidays';
 import type { TicketInfo } from '@/types/components';
+import { useToast } from '@/components/ui/use-toast';
 
 interface TicketRowProps {
   date: Date;
@@ -19,9 +20,36 @@ export const TicketRow: React.FC<TicketRowProps> = ({
   eveningTicket,
   onPurchase
 }) => {
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const { toast } = useToast();
   const formattedDate = formatDate(date);
   const weekDay = getWeekDay(date);
   const isHolidayDate = isHoliday(date);
+
+  const handlePurchase = async (trainNumber: string) => {
+    setIsPurchasing(true);
+    
+    const purchasePromise = onPurchase(formattedDate, trainNumber);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Purchase timeout')), 50000)
+    );
+
+    try {
+      await Promise.race([purchasePromise, timeoutPromise]);
+      toast({
+        title: "购票成功",
+        description: `已成功预订 ${trainNumber} 次列车票`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "购票失败",
+        description: error instanceof Error ? error.message : "请稍后重试",
+      });
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
 
   const renderTicketCell = (ticket?: TicketInfo) => {
     if (!ticket) {
@@ -45,10 +73,10 @@ export const TicketRow: React.FC<TicketRowProps> = ({
           <Button
             variant="outline"
             size="sm"
-            disabled={!hasTickets}
-            onClick={() => onPurchase(formattedDate, ticket.trainNumber)}
+            disabled={isPurchasing}
+            onClick={() => handlePurchase(ticket.trainNumber)}
           >
-            {hasTickets ? '购票' : '候补'}
+            {isPurchasing ? '购票中...' : '购票'}
           </Button>
         </div>
       </TableCell>
@@ -72,4 +100,4 @@ export const TicketRow: React.FC<TicketRowProps> = ({
       {renderTicketCell(eveningTicket)}
     </TableRow>
   );
-}; 
+};

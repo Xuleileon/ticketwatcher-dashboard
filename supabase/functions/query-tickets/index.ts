@@ -12,21 +12,32 @@ serve(async (req) => {
   }
 
   try {
-    const { date, fromStation, toStation, trainNumbers } = await req.json()
+    const { date, fromStation, toStation } = await req.json()
 
-    // Mock ticket data for testing
-    const mockTickets = trainNumbers.map(trainNo => ({
-      trainNumber: trainNo,
-      remainingTickets: Math.floor(Math.random() * 100),
-      price: Math.floor(Math.random() * 500) + 200,
-      date: date,
-      fromStation,
-      toStation,
-      available: true
-    }));
+    // Generate random ticket data for testing
+    const tickets = [
+      {
+        trainNumber: 'G1377',
+        fromStation,
+        toStation,
+        departureTime: '07:15',
+        arrivalTime: '08:45',
+        remainingTickets: Math.floor(Math.random() * 100),
+        price: Math.floor(Math.random() * 500) + 200
+      },
+      {
+        trainNumber: 'G7566',
+        fromStation,
+        toStation,
+        departureTime: '17:15',
+        arrivalTime: '18:45',
+        remainingTickets: Math.floor(Math.random() * 100),
+        price: Math.floor(Math.random() * 500) + 200
+      }
+    ];
 
     return new Response(
-      JSON.stringify(mockTickets),
+      JSON.stringify(tickets),
       { 
         headers: { 
           ...corsHeaders,
