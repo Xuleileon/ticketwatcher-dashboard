@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
-import { RPATask } from '@/types/database';
+import { toast } from "@/hooks/use-toast";
 
 // 获取未来15个工作日
 const getNext15WorkDays = () => {
@@ -27,34 +27,49 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
 }) => {
   const [ticketData, setTicketData] = useState<{[key: string]: TicketInfo[]}>({});
   const workDays = getNext15WorkDays();
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
   useEffect(() => {
     const fetchTicketInfo = async () => {
-      if (!preferences) return;
+      if (!preferences || !supabaseUrl) {
+        console.error('Missing preferences or Supabase URL');
+        return;
+      }
 
       const newTicketData: {[key: string]: TicketInfo[]} = {};
       
       for (const date of workDays) {
         const dateStr = date.toISOString().split('T')[0];
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/query-tickets`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              date: dateStr,
-              fromStation: preferences.fromStation,
-              toStation: preferences.toStation,
-              trainNumbers: [preferences.morningTrainNumber, preferences.eveningTrainNumber]
-            })
-          }
-        );
+        try {
+          const response = await fetch(
+            `${supabaseUrl}/functions/v1/query-tickets`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                date: dateStr,
+                fromStation: preferences.fromStation,
+                toStation: preferences.toStation,
+                trainNumbers: [preferences.morningTrainNumber, preferences.eveningTrainNumber].filter(Boolean)
+              })
+            }
+          );
 
-        if (response.ok) {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
           const data = await response.json();
           newTicketData[dateStr] = data;
+        } catch (error) {
+          console.error('Error fetching ticket data:', error);
+          toast({
+            title: "Error",
+            description: "Failed to fetch ticket information",
+            variant: "destructive",
+          });
         }
       }
 
@@ -65,7 +80,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
     // 每分钟刷新一次
     const interval = setInterval(fetchTicketInfo, 60000);
     return () => clearInterval(interval);
-  }, [preferences]);
+  }, [preferences, supabaseUrl, workDays]);
 
   if (!preferences) {
     return (

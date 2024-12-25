@@ -1,6 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.1'
-import { Railway12306 } from '../lib/12306.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,20 +14,19 @@ serve(async (req) => {
   try {
     const { date, fromStation, toStation, trainNumbers } = await req.json()
 
-    // Initialize 12306 client
-    const railway = new Railway12306('')
-    await railway.loadCityData()
-
-    // Query tickets
-    const tickets = await railway.queryTickets(date, fromStation, toStation)
-
-    // Filter by train numbers if provided
-    const filteredTickets = trainNumbers && trainNumbers.length > 0
-      ? tickets.filter(ticket => trainNumbers.includes(ticket.trainNo))
-      : tickets
+    // Mock ticket data for testing
+    const mockTickets = trainNumbers.map(trainNo => ({
+      trainNumber: trainNo,
+      remainingTickets: Math.floor(Math.random() * 100),
+      price: Math.floor(Math.random() * 500) + 200,
+      date: date,
+      fromStation,
+      toStation,
+      available: true
+    }));
 
     return new Response(
-      JSON.stringify(filteredTickets),
+      JSON.stringify(mockTickets),
       { 
         headers: { 
           ...corsHeaders,
