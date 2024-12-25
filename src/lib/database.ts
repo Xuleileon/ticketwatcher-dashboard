@@ -15,6 +15,8 @@ export const database = {
           evening_train_number: preferences.eveningTrainNumber,
           seat_type: preferences.seatType,
           updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
