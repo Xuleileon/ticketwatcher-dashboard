@@ -1,124 +1,109 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import axios from 'npm:axios';
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-interface QueryTicketsBody {
-  date: string;
+interface TicketInfo {
+  trainNumber: string;
   fromStation: string;
   toStation: string;
+  departureTime: string;
+  arrivalTime: string;
+  remainingTickets: number;
+  price: number;
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { date, fromStation, toStation } = await req.json() as QueryTicketsBody;
+    const { date, fromStation, toStation } = await req.json();
 
-    console.log('Received query request:', { date, fromStation, toStation });
-
-    // 构建12306查询URL
+    // 构建 12306 API 请求
     const url = `https://kyfw.12306.cn/otn/leftTicket/queryO?leftTicketDTO.train_date=${date}&leftTicketDTO.from_station=${fromStation}&leftTicketDTO.to_station=${toStation}&purpose_codes=ADULT`;
 
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    };
+    const response = await fetch(url, {
+      headers: {
+        'Cookie': '_uab_collina=171959196059070525462211; JSESSIONID=934CC95F7C881851D560D6EF8B7B67B5; tk=OYBnZPnapPHALsWNqLyIlFgK3ADcfICc3mdXI8QJZ-slmB1B0; _jc_save_wfdc_flag=dc; guidesStatus=off; highContrastMode=defaltMode; cursorStatus=off; route=6f50b51faa11b987e576cdb301e545c4; BIGipServerotn=1943601418.64545.0000; BIGipServerpassport=954728714.50215.0000',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+      }
+    });
 
-    console.log('Querying 12306 API:', { url });
-
-    const response = await axios.get(url, { headers });
-    
-    // Add defensive checks for the response structure
-    if (!response.data) {
-      console.error('No response data received');
-      throw new Error('No response from 12306 API');
+    if (!response.ok) {
+      throw new Error(`12306 API responded with status ${response.status}`);
     }
 
-    if (!response.data.data) {
-      console.error('Invalid response structure - no data field:', response.data);
+    const data = await response.json();
+    
+    if (!data.data?.result) {
+      console.error('Unexpected response structure:', data);
       throw new Error('Invalid response structure from 12306 API');
     }
 
-    if (!Array.isArray(response.data.data.result)) {
-      console.error('Invalid response structure - result is not an array:', response.data.data);
-      throw new Error('Invalid result format from 12306 API');
-    }
+    const tickets: TicketInfo[] = data.data.result
+      .map((ticket: string) => {
+        const fields = ticket.split('|');
+        if (fields.length < 32) {
+          console.warn('Unexpected ticket data structure:', ticket);
+          return null;
+        }
 
-    const result = response.data.data.result;
+        // 解析余票信息
+        const parseTicketCount = (info: string): number => {
+          if (!info || info === '无' || info === '*') return 0;
+          if (info === '有') return 999;
+          const count = parseInt(info);
+          return isNaN(count) ? 0 : count;
+        };
 
-    // Get user's purchased tickets from Supabase
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
+        // 解析价格信息
+        const parsePrice = (info: string): number => {
+          if (!info) return 0;
+          const match = info.match(/¥(\d+(\.\d{1,2})?)/);
+          if (!match) return 0;
+          return parseFloat(match[1]);
+        };
 
-    const userId = req.headers.get('x-user-id');
-    console.log('Checking purchases for user:', userId);
+        // 字段映射说明：
+        // fields[3]: 车次
+        // fields[6]: 出发站代码
+        // fields[7]: 到达站代码
+        // fields[8]: 出发时间
+        // fields[9]: 到达时间
+        // fields[30]: 二等座余票
+        // fields[31]: 一等座余票
+        // fields[32]: 商务座余票
+        return {
+          trainNumber: fields[3],
+          fromStation: fields[6],
+          toStation: fields[7],
+          departureTime: fields[8],
+          arrivalTime: fields[9],
+          remainingTickets: parseTicketCount(fields[30]), // 二等座
+          price: parsePrice(fields[30])
+        };
+      })
+      .filter((ticket): ticket is TicketInfo => ticket !== null);
 
-    const { data: purchases, error: purchasesError } = await supabaseClient
-      .from('ticket_purchases')
-      .select('train_number, purchase_status')
-      .eq('travel_date', date)
-      .eq('user_id', userId);
-
-    if (purchasesError) {
-      console.error('Error fetching purchases:', purchasesError);
-    }
-
-    // Transform the ticket data
-    const tickets = result.map((item: string) => {
-      const data = item.split('|');
-      const trainNumber = data[3];
-      
-      return {
-        trainNumber,
-        fromStation: data[6],
-        toStation: data[7],
-        departureTime: data[8],
-        arrivalTime: data[9],
-        duration: data[10],
-        remainingTickets: parseInt(data[30]) || 0,
-        price: 0,
-        purchased: purchases?.some(p => 
-          p.train_number === trainNumber && 
-          p.purchase_status === 'completed'
-        ) || false
-      };
+    return new Response(JSON.stringify(tickets), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
     });
 
-    console.log(`Found ${tickets.length} tickets`);
-
-    return new Response(
-      JSON.stringify(tickets),
-      { 
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
   } catch (error) {
     console.error('Error in query-tickets function:', error);
     
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'An unknown error occurred',
-        details: error
-      }),
-      { 
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      status: 500
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
-    );
+    });
   }
 });
