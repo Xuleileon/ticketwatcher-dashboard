@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import axios from 'npm:axios';
 
 const corsHeaders = {
@@ -36,9 +36,19 @@ serve(async (req) => {
     const response = await axios.get(url, { headers });
     
     // Add defensive checks for the response structure
-    if (!response.data || !response.data.data || !Array.isArray(response.data.data.result)) {
-      console.error('Invalid response structure:', response.data);
-      throw new Error('Invalid response from 12306 API');
+    if (!response.data) {
+      console.error('No response data received');
+      throw new Error('No response from 12306 API');
+    }
+
+    if (!response.data.data) {
+      console.error('Invalid response structure - no data field:', response.data);
+      throw new Error('Invalid response structure from 12306 API');
+    }
+
+    if (!Array.isArray(response.data.data.result)) {
+      console.error('Invalid response structure - result is not an array:', response.data.data);
+      throw new Error('Invalid result format from 12306 API');
     }
 
     const result = response.data.data.result;
@@ -88,7 +98,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify(tickets),
       { 
-        headers: { 
+        headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
         }
