@@ -50,19 +50,9 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
       for (const date of days) {
         const dateStr = date.toISOString().split('T')[0];
         try {
-          const tickets = await railway.queryTickets(
-            dateStr,
-            preferences.fromStation,
-            preferences.toStation
-          );
-
-          // 过滤出早晚班车次
-          const relevantTickets = tickets.filter(ticket => 
-            ticket.trainNumber === preferences.morningTrainNumber || 
-            ticket.trainNumber === preferences.eveningTrainNumber
-          );
-
-          newTicketData[dateStr] = relevantTickets;
+          const result = await railway.queryTickets(preferences);
+          const tickets = [...Object.values(result.morningTickets), ...Object.values(result.eveningTickets)];
+          newTicketData[dateStr] = tickets;
         } catch (error) {
           console.error('Error fetching ticket info:', error);
         }
