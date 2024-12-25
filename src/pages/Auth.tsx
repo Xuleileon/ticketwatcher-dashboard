@@ -7,14 +7,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangleIcon, InfoIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { AuthError } from '@supabase/supabase-js';
+import type { AuthError, AuthChangeEvent } from '@supabase/supabase-js';
 
 const AuthPage = () => {
   const navigate = useNavigate();
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, session) => {
       console.log("Auth state changed:", event, session);
       
       if (event === 'SIGNED_IN' && session) {
@@ -116,6 +116,7 @@ const AuthPage = () => {
               }}
               theme="light"
               providers={[]}
+              onError={handleError}
             />
           </div>
         </CardContent>
