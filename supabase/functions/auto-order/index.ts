@@ -14,14 +14,13 @@ serve(async (req) => {
   try {
     const { verificationCode, dates, trainNo } = await req.json()
 
-    // Create Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     )
 
-    // Make request to 12306 API
-    const response = await fetch('https://kyfw.12306.cn/otn/leftTicket/submitOrderRequest', {
+    // Submit order to 12306
+    const orderResponse = await fetch('https://kyfw.12306.cn/otn/leftTicket/submitOrderRequest', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -34,24 +33,25 @@ serve(async (req) => {
       })
     })
 
-    const data = await response.json()
+    const orderData = await orderResponse.json()
 
-    if (data.status) {
-      // Update ticket status in database
-      const { error: updateError } = await supabaseClient
+    if (orderData.status) {
+      // Update ticket status
+      await supabaseClient
         .from('ticket_status')
-        .update({ ticket_purchased: true })
+        .update({ 
+          ticket_purchased: true,
+          updated_at: new Date().toISOString()
+        })
         .eq('train_number', trainNo)
         .eq('travel_date', dates[0])
-
-      if (updateError) throw updateError
 
       return new Response(
         JSON.stringify({ success: true, message: 'Order submitted successfully' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     } else {
-      throw new Error(data.messages || 'Failed to submit order')
+      throw new Error(orderData.messages || 'Failed to submit order')
     }
 
   } catch (error) {
