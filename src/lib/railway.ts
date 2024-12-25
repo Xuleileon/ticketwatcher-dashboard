@@ -1,4 +1,5 @@
-import { TicketInfo } from '@/types/components';
+import { TicketInfo, CommutePreference } from '@/types/components';
+import { getNext15WorkDays, formatDate } from '@/components/TicketMonitor/DateUtils';
 
 export interface Station {
   name: string;
@@ -66,8 +67,8 @@ export class Railway12306 {
     return station?.code || null;
   }
 
-  // 查询车票信息
-  async queryTickets(date: string, fromStation: string, toStation: string): Promise<TicketInfo[]> {
+  // 查询指定日期的车票信息
+  async queryTicketsByDate(date: string, fromStation: string, toStation: string): Promise<TicketInfo[]> {
     try {
       const fromCode = await this.getStationCode(fromStation);
       const toCode = await this.getStationCode(toStation);
@@ -113,5 +114,38 @@ export class Railway12306 {
       console.error('查询车票出错:', error);
       return [];
     }
+  }
+
+  // 查询未来15个工作日的早晚班车票
+  async queryTickets(preferences: CommutePreference): Promise<{
+    morningTickets: Record<string, TicketInfo>;
+    eveningTickets: Record<string, TicketInfo>;
+  }> {
+    const workDays = getNext15WorkDays();
+    const morningTickets: Record<string, TicketInfo> = {};
+    const eveningTickets: Record<string, TicketInfo> = {};
+
+    for (const date of workDays) {
+      const dateStr = formatDate(date);
+      const tickets = await this.queryTicketsByDate(
+        date.toISOString().split('T')[0],
+        preferences.fromStation,
+        preferences.toStation
+      );
+
+      // 查找早班车
+      const morningTicket = tickets.find(t => t.trainNumber === preferences.morningTrainNumber);
+      if (morningTicket) {
+        morningTickets[dateStr] = morningTicket;
+      }
+
+      // 查找晚班车
+      const eveningTicket = tickets.find(t => t.trainNumber === preferences.eveningTrainNumber);
+      if (eveningTicket) {
+        eveningTickets[dateStr] = eveningTicket;
+      }
+    }
+
+    return { morningTickets, eveningTickets };
   }
 } 
