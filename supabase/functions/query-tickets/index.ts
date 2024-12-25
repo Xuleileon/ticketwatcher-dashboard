@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +13,7 @@ serve(async (req) => {
   try {
     const { date, fromStation, toStation } = await req.json()
 
-    // Generate random ticket data for testing
+    // Generate mock ticket data for testing
     const tickets = [
       {
         trainNumber: 'G1377',
@@ -34,7 +33,7 @@ serve(async (req) => {
         remainingTickets: Math.floor(Math.random() * 100),
         price: Math.floor(Math.random() * 500) + 200
       }
-    ];
+    ]
 
     return new Response(
       JSON.stringify(tickets),

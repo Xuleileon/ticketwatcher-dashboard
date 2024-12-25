@@ -11,11 +11,9 @@ export interface Station {
 
 export class Railway12306 {
   private static instance: Railway12306;
-  private baseUrl: string;
   private stationsCache: Map<string, Station> = new Map();
   
   private constructor() {
-    this.baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/railway`;
     this.loadStations();
   }
 
@@ -62,28 +60,20 @@ export class Railway12306 {
         return [];
       }
 
-      const response = await fetch(
-        `${this.baseUrl}/query-tickets`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            date,
-            fromStation: fromCode,
-            toStation: toCode
-          })
+      const { data, error } = await supabase.functions.invoke('query-tickets', {
+        body: {
+          date,
+          fromStation: fromCode,
+          toStation: toCode
         }
-      );
+      });
 
-      if (!response.ok) {
-        throw new Error('Failed to query tickets');
+      if (error) {
+        console.error('Error querying tickets:', error);
+        throw error;
       }
 
-      const data = await response.json();
-      return data;
+      return data || [];
     } catch (error) {
       console.error('Error querying tickets:', error);
       return [];
