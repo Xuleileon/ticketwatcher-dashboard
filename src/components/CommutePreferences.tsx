@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { toast } from "@/hooks/use-toast";
 import type { CommutePreferencesProps } from '@/types/components';
 
 export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
@@ -13,17 +15,99 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
   const [morningTrainNumber, setMorningTrainNumber] = useState('');
   const [eveningTrainNumber, setEveningTrainNumber] = useState('');
   const [seatType, setSeatType] = useState('二等座');
+  const [isValidating, setIsValidating] = useState(false);
 
-  // 当任何值改变时，通知父组件
-  React.useEffect(() => {
-    onPreferencesChange({
-      fromStation,
-      toStation,
-      morningTrainNumber,
-      eveningTrainNumber,
-      seatType
-    });
-  }, [fromStation, toStation, morningTrainNumber, eveningTrainNumber, seatType]);
+  const validateStation = async (station: string) => {
+    try {
+      const response = await fetch(
+        `https://kyfw.12306.cn/otn/resources/js/framework/station_name.js`
+      );
+      if (!response.ok) throw new Error('站点验证失败');
+      const text = await response.text();
+      // 解析12306返回的站点数据
+      const stationData = text.split('@').slice(1);
+      return stationData.some(station => station.includes(station));
+    } catch (error) {
+      console.error('Error validating station:', error);
+      return false;
+    }
+  };
+
+  const validateTrainNumber = async (trainNumber: string) => {
+    if (!trainNumber.match(/^[GDCZTKYL]\d{1,4}$/)) {
+      return false;
+    }
+    try {
+      // 调用12306列车查询接口验证车次
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/proxy/otn/queryTrainInfo/query`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: `trainNo=${trainNumber}`
+        }
+      );
+      if (!response.ok) throw new Error('车次验证失败');
+      const data = await response.json();
+      return data.status && data.data.length > 0;
+    } catch (error) {
+      console.error('Error validating train number:', error);
+      return false;
+    }
+  };
+
+  const handleSave = async () => {
+    setIsValidating(true);
+    try {
+      // 验证站点
+      const isFromStationValid = await validateStation(fromStation);
+      const isToStationValid = await validateStation(toStation);
+      if (!isFromStationValid || !isToStationValid) {
+        toast({
+          title: "站点验证失败",
+          description: "请输入有效的车站名称",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 验证车次
+      const isMorningTrainValid = await validateTrainNumber(morningTrainNumber);
+      const isEveningTrainValid = await validateTrainNumber(eveningTrainNumber);
+      if (!isMorningTrainValid || !isEveningTrainValid) {
+        toast({
+          title: "车次验证失败",
+          description: "请输入有效的车次号",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // 所有验证通过，保存设置
+      onPreferencesChange({
+        fromStation,
+        toStation,
+        morningTrainNumber,
+        eveningTrainNumber,
+        seatType
+      });
+
+      toast({
+        title: "保存成功",
+        description: "乘车偏好设置已更新",
+      });
+    } catch (error) {
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "未知错误",
+        variant: "destructive",
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   return (
     <Card>
@@ -58,7 +142,7 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
             <Input
               id="morningTrainNumber"
               value={morningTrainNumber}
-              onChange={(e) => setMorningTrainNumber(e.target.value)}
+              onChange={(e) => setMorningTrainNumber(e.target.value.toUpperCase())}
               placeholder="请输入早班车次号"
             />
           </div>
@@ -67,7 +151,7 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
             <Input
               id="eveningTrainNumber"
               value={eveningTrainNumber}
-              onChange={(e) => setEveningTrainNumber(e.target.value)}
+              onChange={(e) => setEveningTrainNumber(e.target.value.toUpperCase())}
               placeholder="请输入晚班车次号"
             />
           </div>
@@ -88,6 +172,15 @@ export const CommutePreferences: React.FC<CommutePreferencesProps> = ({
           </div>
         </div>
       </CardContent>
+      <CardFooter>
+        <Button 
+          className="w-full"
+          onClick={handleSave}
+          disabled={isValidating || !fromStation || !toStation || !morningTrainNumber || !eveningTrainNumber}
+        >
+          {isValidating ? "验证中..." : "保存设置"}
+        </Button>
+      </CardFooter>
     </Card>
   );
 };

@@ -3,17 +3,46 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import type { TicketMonitorProps, TicketInfo } from '@/types/components';
-import { toast } from "@/hooks/use-toast";
 
-// 获取未来15个工作日
-const getNext15WorkDays = () => {
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+// 获取未来15个工作日（排除周末和节假日）
+const getNext15WorkDays = async () => {
   const workDays: Date[] = [];
-  let currentDate = new Date();
+  const startDate = new Date();
+  let currentDate = new Date(startDate);
+  const holidayCache = new Map<string, boolean>();
+  
+  const isHoliday = async (date: Date): Promise<boolean> => {
+    const dateStr = date.toISOString().split('T')[0];
+    if (holidayCache.has(dateStr)) {
+      return holidayCache.get(dateStr)!;
+    }
+
+    try {
+      // 调用节假日API
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/proxy/holiday/info/${dateStr}`
+      );
+      if (!response.ok) throw new Error('节假日查询失败');
+      const data = await response.json();
+      const isHoliday = data.holiday || data.workday === false;
+      holidayCache.set(dateStr, isHoliday);
+      return isHoliday;
+    } catch (error) {
+      console.error('Error checking holiday:', error);
+      return false;
+    }
+  };
   
   while (workDays.length < 15) {
-    // 跳过周末（0是周日，6是周六）
+    // 跳过周末
     if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-      workDays.push(new Date(currentDate));
+      // 检查是否是节假日
+      const holiday = await isHoliday(currentDate);
+      if (!holiday) {
+        workDays.push(new Date(currentDate));
+      }
     }
     currentDate.setDate(currentDate.getDate() + 1);
   }
@@ -26,50 +55,69 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
   onPurchase
 }) => {
   const [ticketData, setTicketData] = useState<{[key: string]: TicketInfo[]}>({});
-  const workDays = getNext15WorkDays();
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const [workDays, setWorkDays] = useState<Date[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTicketInfo = async () => {
-      if (!preferences || !supabaseUrl) {
-        console.error('Missing preferences or Supabase URL');
-        return;
-      }
+    const initWorkDays = async () => {
+      const days = await getNext15WorkDays();
+      setWorkDays(days);
+      setIsLoading(false);
+    };
+    initWorkDays();
+  }, []);
 
+  useEffect(() => {
+    if (!preferences || workDays.length === 0) return;
+
+    const fetchTicketInfo = async () => {
       const newTicketData: {[key: string]: TicketInfo[]} = {};
       
       for (const date of workDays) {
         const dateStr = date.toISOString().split('T')[0];
         try {
+          // 构建查询参数
+          const params = new URLSearchParams({
+            'leftTicketDTO.train_date': dateStr,
+            'leftTicketDTO.from_station': preferences.fromStation,
+            'leftTicketDTO.to_station': preferences.toStation,
+            'purpose_codes': 'ADULT'
+          });
+
           const response = await fetch(
-            `${supabaseUrl}/functions/v1/query-tickets`,
+            `${import.meta.env.VITE_API_URL}/proxy/otn/leftTicket/queryZ?${params.toString()}`,
             {
-              method: 'POST',
+              method: 'GET',
               headers: {
                 'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                date: dateStr,
-                fromStation: preferences.fromStation,
-                toStation: preferences.toStation,
-                trainNumbers: [preferences.morningTrainNumber, preferences.eveningTrainNumber].filter(Boolean)
-              })
+              }
             }
           );
 
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status && data.data) {
+              // 过滤出早晚班车次的余票信息
+              const relevantTickets = data.data.result
+                .filter((ticket: string) => {
+                  const fields = ticket.split('|');
+                  const trainNumber = fields[3];
+                  return trainNumber === preferences.morningTrainNumber || 
+                         trainNumber === preferences.eveningTrainNumber;
+                })
+                .map((ticket: string) => {
+                  const fields = ticket.split('|');
+                  return {
+                    trainNumber: fields[3],
+                    remainingTickets: parseInt(fields[fields.length - 1]) || 0,
+                    price: parseFloat(fields[fields.length - 2]) || 0
+                  };
+                });
+              newTicketData[dateStr] = relevantTickets;
+            }
           }
-
-          const data = await response.json();
-          newTicketData[dateStr] = data;
         } catch (error) {
-          console.error('Error fetching ticket data:', error);
-          toast({
-            title: "Error",
-            description: "Failed to fetch ticket information",
-            variant: "destructive",
-          });
+          console.error('Error fetching ticket info:', error);
         }
       }
 
@@ -80,7 +128,18 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
     // 每分钟刷新一次
     const interval = setInterval(fetchTicketInfo, 60000);
     return () => clearInterval(interval);
-  }, [preferences, supabaseUrl, workDays]);
+  }, [preferences, workDays]);
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>余票监控</CardTitle>
+          <CardDescription>加载中...</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (!preferences) {
     return (
@@ -106,6 +165,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead>日期</TableHead>
+              <TableHead>星期</TableHead>
               <TableHead>早班车次</TableHead>
               <TableHead>早班余票</TableHead>
               <TableHead>早班价格</TableHead>
@@ -126,6 +186,7 @@ export const TicketMonitor: React.FC<TicketMonitorProps> = ({
               return (
                 <TableRow key={dateStr}>
                   <TableCell>{dateStr}</TableCell>
+                  <TableCell>周{WEEKDAYS[date.getDay()]}</TableCell>
                   <TableCell>{preferences.morningTrainNumber}</TableCell>
                   <TableCell>{morningTicket?.remainingTickets || '查询中'}</TableCell>
                   <TableCell>¥{morningTicket?.price || '--'}</TableCell>
